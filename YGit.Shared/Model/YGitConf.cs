@@ -32,6 +32,7 @@ namespace YGit.Model
     /// </summary> 
     internal class YGitConf : ObservableObject
     {
+        private string name;
         private string userName;
         private string password;
         private string email;
@@ -40,6 +41,14 @@ namespace YGit.Model
         private YGitRepoConf oneConf;
         private YGitRepoConf twoConf;
         private YGitRepoConf thirdConf;
+
+        /// <summary>
+        /// Gets or sets the name.
+        /// </summary>
+        /// <value>
+        /// The name.
+        /// </value>
+        public string Name { get => name; set => this.SetProperty(ref this.name, value); }
 
         /// <summary>
         /// Gets or sets the name of the user.

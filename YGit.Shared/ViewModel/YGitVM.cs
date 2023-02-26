@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using System.Windows.Shapes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LibGit2Sharp;
@@ -31,7 +30,8 @@ namespace YGit.ViewModel
         private Signature signature;
         private string cmodule;
         private string cmsg;
-        private string currentPath;
+        private string repoName;
+        private string repoPath;
         private string sourceMergeBranch;
         private string checkoutBranch;
         private string checkoutRemoteBranch;
@@ -44,13 +44,16 @@ namespace YGit.ViewModel
         /// </summary>
         public YGitVM()
         {
+            this.Initialize();
         }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="YGitVM"/> class.
         /// </summary>
-        public YGitVM(string path)
+        public YGitVM(string path) : this()
         {
+            this.repoPath = path;
+            this.LoadConf();
         }
 
         /// <summary>
@@ -59,7 +62,15 @@ namespace YGit.ViewModel
         /// <value>
         /// The git conf.
         /// </value>
-        public YGitConf GitConf { get => this.gitConf; set => this.SetProperty(ref this.gitConf, value); }
+        public YGitConf GitConf
+        {
+            get => this.gitConf;
+            set
+            {
+                this.SetProperty(ref this.gitConf, value);
+                this.OnGitConfChanged(value);
+            }
+        }
 
         /// <summary>
         /// Gets or sets the git confs.
@@ -68,6 +79,22 @@ namespace YGit.ViewModel
         /// The git confs.
         /// </value>
         public YGitConfs GitConfs { get => this.gitConfs; set => this.SetProperty(ref this.gitConfs, value); }
+
+        /// <summary>
+        /// Gets or sets the name of the repo.
+        /// </summary>
+        /// <value>
+        /// The name of the repo.
+        /// </value>
+        public string RepoName { get => this.repoName; set => this.SetProperty(ref this.repoName, value); }
+
+        /// <summary>
+        /// Gets or sets the repo path.
+        /// </summary>
+        /// <value>
+        /// The repo path.
+        /// </value>
+        public string RepoPath { get => this.repoPath; set => this.SetProperty(ref this.repoPath, value); }
 
         /// <summary>
         /// Gets or sets the c module.
@@ -175,40 +202,24 @@ namespace YGit.ViewModel
 
         /// <summary>
         /// Initializes the specified currpath.
-        /// </summary>
-        /// <param name="currpath">The currpath.</param>
-        public void Initialize(string currpath)
+        /// </summary> 
+        public void Initialize()
         {
             if (!_initialized)
             {
-                this.currentPath = currpath;
-                this.LoadConf();
                 progressHandler = new ProgressHandler(msg => logger.WriteLine(msg));
                 pushErrorHandler = new PushStatusErrorHandler(error => logger.WriteLine($"{error.Message} {error.Reference}"));
                 checkoutNotifyHandler = new CheckoutNotifyHandler(CheckoutNotify);
                 checkoutProgressHandler = new CheckoutProgressHandler((title, completedSteps, totalSteps) => logger.WriteLine($"Progress update: {title} ({completedSteps} of {totalSteps} completed)."));
                 fetchOpts = new FetchOptions { Prune = true, OnProgress = progressHandler };
-                signature = new Signature(this.GitConf.UserName, this.GitConf.Email, DateTimeOffset.Now);
                 mergeOpts = new MergeOptions() { CheckoutNotifyFlags = CheckoutNotifyFlags.Conflict | CheckoutNotifyFlags.None | CheckoutNotifyFlags.Updated, OnCheckoutNotify = checkoutNotifyHandler, OnCheckoutProgress = checkoutProgressHandler };
-                pushOpts = new PushOptions { CredentialsProvider = (_url, _user, _cred) => new UsernamePasswordCredentials { Username = this.GitConf.UserName, Password = this.GitConf.Password }, OnPushStatusError = pushErrorHandler };
+
                 checkoutOpts = new CheckoutOptions()
                 {
                     CheckoutNotifyFlags = CheckoutNotifyFlags.Conflict | CheckoutNotifyFlags.None | CheckoutNotifyFlags.Updated,
                     OnCheckoutNotify = checkoutNotifyHandler,
                     CheckoutModifiers = CheckoutModifiers.Force,
                     OnCheckoutProgress = checkoutProgressHandler,
-                };
-                cloneOptions = new CloneOptions
-                {
-                    BranchName = this.GitConf.BranchName,
-                    OnProgress = progressHandler,
-                    OnCheckoutProgress = checkoutProgressHandler,
-                    CredentialsProvider = (url, usernameFromUrl, types) =>
-                        new UsernamePasswordCredentials
-                        {
-                            Username = this.GitConf.UserName,
-                            Password = this.GitConf.Password
-                        }
                 };
 
                 this._initialized = true;
@@ -220,17 +231,24 @@ namespace YGit.ViewModel
         /// </summary>
         public async Task CloneAsync()
         {
-            await Task.Run(() =>
+            this.repoPath = null;
+            this.LoadConf();
+            this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
+
+            if (this.GitConf != null)
             {
-                if (this.GitConf.OneConf != null)
-                    this.CloneModule(this.GitConf.OneConf);
+                await Task.Run(() =>
+                {
+                    if (this.GitConf.OneConf != null)
+                        this.CloneModule(this.GitConf.OneConf);
 
-                if (this.GitConf.TwoConf != null)
-                    this.CloneModule(this.GitConf.TwoConf);
+                    if (this.GitConf.TwoConf != null)
+                        this.CloneModule(this.GitConf.TwoConf);
 
-                if (this.GitConf.ThirdConf != null)
-                    this.CloneModule(this.GitConf.ThirdConf);
-            });
+                    if (this.GitConf.ThirdConf != null)
+                        this.CloneModule(this.GitConf.ThirdConf);
+                });
+            }
         }
 
         /// <summary>
@@ -238,6 +256,9 @@ namespace YGit.ViewModel
         /// </summary>
         public async Task PullAsync()
         {
+            this.LoadConf();
+            this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
+
             await Task.Run(() =>
             {
                 if (this.GitConf.OneConf != null)
@@ -261,6 +282,9 @@ namespace YGit.ViewModel
 
             if (string.IsNullOrWhiteSpace(this.CMsg))
                 throw new ArgumentNullException(nameof(this.CMsg));
+
+            this.LoadConf();
+            this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
 
             var message = $"[{this.CModule}] {this.CMsg}";
 
@@ -291,12 +315,14 @@ namespace YGit.ViewModel
         /// </exception>
         public async Task CheckoutAsync()
         {
-
             if (string.IsNullOrWhiteSpace(this.CheckoutRemoteBranch))
                 throw new ArgumentNullException(nameof(this.CheckoutRemoteBranch));
 
             if (string.IsNullOrWhiteSpace(this.CheckoutBranch))
                 throw new ArgumentNullException(nameof(this.CheckoutBranch));
+
+            this.LoadConf();
+            this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
 
             await Task.Run(() =>
             {
@@ -311,7 +337,7 @@ namespace YGit.ViewModel
 
                 this.GitConf.BranchName = this.CheckoutBranch;
                 this.CheckoutBranch = null;
-                this.checkoutRemoteBranch = null;
+                this.CheckoutRemoteBranch = null;
             });
         }
 
@@ -320,6 +346,9 @@ namespace YGit.ViewModel
         /// </summary>
         public async Task MergeAsync()
         {
+            this.LoadConf();
+            this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
+
             await Task.Run(() =>
             {
                 if (this.GitConf.OneConf != null)
@@ -338,6 +367,9 @@ namespace YGit.ViewModel
         /// </summary>
         public async Task PushAsync()
         {
+            this.LoadConf();
+            this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
+
             await Task.Run(() =>
             {
                 if (this.GitConf.OneConf != null)
@@ -423,9 +455,9 @@ namespace YGit.ViewModel
             try
             {
                 // Clone the repository
-                this.currentPath = Repository.Clone(conf.RemoteUrl, conf.LocalPath, cloneOptions);
+                var path = Repository.Clone(conf.RemoteUrl, conf.LocalPath, cloneOptions);
 
-                if (Directory.Exists(this.currentPath))
+                if (Directory.Exists(path))
                 {
                     this.AddRemote(conf);
                     this.SetPushUrl(conf);
@@ -722,7 +754,6 @@ namespace YGit.ViewModel
         /// <exception cref="LibGit2Sharp.NotFoundException"></exception>
         private Repository Initialize(YGitRepoConf conf)
         {
-            this.Initialize(this.currentPath);
             this.LoadConf();
 
             if (string.IsNullOrWhiteSpace(conf.LocalPath))
@@ -738,11 +769,38 @@ namespace YGit.ViewModel
         }
 
         /// <summary>
+        /// Called when [git conf changed].
+        /// </summary>
+        /// <param name="conf">The conf.</param>
+        private void OnGitConfChanged(YGitConf conf)
+        {
+            if (conf != null)
+            {
+                signature = new Signature(conf.UserName, conf.Email, DateTimeOffset.Now);
+                pushOpts = new PushOptions { CredentialsProvider = (_url, _user, _cred) => new UsernamePasswordCredentials { Username = conf.UserName, Password = conf.Password }, OnPushStatusError = pushErrorHandler };
+                cloneOptions = new CloneOptions
+                {
+                    BranchName = conf.BranchName,
+                    OnProgress = progressHandler,
+                    OnCheckoutProgress = checkoutProgressHandler,
+                    CredentialsProvider = (url, usernameFromUrl, types) =>
+                        new UsernamePasswordCredentials
+                        {
+                            Username = conf.UserName,
+                            Password = conf.Password
+                        }
+                };
+
+                this.RepoName = conf.Name;
+            }
+        }
+
+        /// <summary>
         /// Loads the conf.
         /// </summary>
         private void LoadConf()
         {
-            if (this.GitConfs?.Any() ?? false)
+            if (!(this.GitConfs?.Any() ?? false))
             {
                 var confDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "YGit");
                 var confPath = Path.Combine(confDir, "YGitS.json");
@@ -754,13 +812,13 @@ namespace YGit.ViewModel
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(this.currentPath))
-                return;
+            if (!string.IsNullOrWhiteSpace(this.repoPath))
+            {
+                if (!this.IsValid(new DirectoryInfo(this.repoPath)))
+                    throw new NotFoundException($"Error:当前路径 {this.repoPath} 找不到匹配的仓库配置。");
 
-            if (!this.IsValid(new DirectoryInfo(this.currentPath)))
-                throw new NotFoundException($"Error:当前路径 {this.currentPath} 找不到匹配的仓库配置。");
-
-            this.GitConf = this.GitConfs.FirstOrDefault(m => m.OneConf.LocalPath == this.currentPath);
+                this.GitConf = this.GitConfs.FirstOrDefault(m => m.OneConf.LocalPath == this.repoPath || m.TwoConf?.LocalPath == this.repoPath || m.ThirdConf?.LocalPath == this.repoPath);
+            }
         }
 
         /// <summary>
@@ -835,7 +893,7 @@ namespace YGit.ViewModel
             var valied = Repository.IsValid(directoryInfo.FullName);
             if (valied)
             {
-                this.currentPath = directoryInfo.FullName;
+                this.repoPath = directoryInfo.FullName;
                 return valied;
             }
 

@@ -12,6 +12,7 @@ addin.RegsisterTypes();
 var confs = new YGitConfs();
 var gitConf = new YGitConf()
 {
+    Name = "YGit_Develop",
     BranchName ="develop",
     Email = "yaojiestudio@gmail.com",
     Password = "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",
@@ -28,8 +29,7 @@ var gitConf = new YGitConf()
 };
 
 confs.Add(gitConf);
-var vm = new YGitVM(); //"D:\\Git\\YGit\\YGit.Shared"
-vm.Initialize("D:\\Git\\YGit\\YGit.Shared");
+var vm = new YGitVM(); //"D:\\Git\\YGit\\YGit.Shared" 
 
 #region Save Conf
 
@@ -39,21 +39,22 @@ vm.Initialize("D:\\Git\\YGit\\YGit.Shared");
 #endregion
 
 #region Load Conf
-
+vm.RepoPath = "D:\\Git\\YGit\\YGitConsole";
 #endregion
 
 #region Clone 仓库
+//vm.RepoName = "YGit_Develop";
 //await vm.CloneAsync(); // Clone 仓库
 #endregion
 
 #region 提交修改文件
-//vm.CModule = "Test";
-//vm.CMsg = "提交测试";
+//vm.CModule = "Readme";
+//vm.CMsg = "2023-2-26 16:19:21";
 //vm.CommitCmd.Execute(null);
 #endregion
 
 #region Push 推送
-//await vm.PullAsync() // 推送
+//await vm.PushAsync(); // 推送
 #endregion
 
 #region Checkout 签出分支 
