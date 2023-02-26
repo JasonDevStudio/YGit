@@ -9,6 +9,7 @@ using YGit.Common;
 var addin = new YGitConsole.AddIn();
 addin.RegsisterTypes();
 
+var confs = new YGitConfs();
 var gitConf = new YGitConf()
 {
     BranchName ="develop",
@@ -26,10 +27,23 @@ var gitConf = new YGitConf()
     }
 };
 
-var vm = new YGitVM();
+confs.Add(gitConf);
+var vm = new YGitVM(); //"D:\\Git\\YGit\\YGit.Shared"
+vm.Initialize("D:\\Git\\YGit\\YGit.Shared");
+
+#region Save Conf
+
+//vm.GitConfs = confs;
+//vm.SaveConfsCmd.Execute(null);
+
+#endregion
+
+#region Load Conf
+
+#endregion
 
 #region Clone 仓库
-await vm.CloneAsync(); // Clone 仓库
+//await vm.CloneAsync(); // Clone 仓库
 #endregion
 
 #region 提交修改文件
@@ -43,9 +57,9 @@ await vm.CloneAsync(); // Clone 仓库
 #endregion
 
 #region Checkout 签出分支 
-vm.CheckoutBranch = "main";
-vm.CheckoutRemoteBranch = "origin/main";
-await vm.CheckoutAsync();
+//vm.CheckoutBranch = "main";
+//vm.CheckoutRemoteBranch = "origin/main";
+//await vm.CheckoutAsync();
 #endregion
 
 #region Pull 拉取远端分支到本地分支
@@ -54,8 +68,8 @@ await vm.CheckoutAsync();
 
 #region Merge 合并分支
 
-vm.SourceMergeBranch = "origin/develop";
-await vm.MergeAsync();
+//vm.SourceMergeBranch = "origin/develop";
+//await vm.MergeAsync();
 
 #endregion
 

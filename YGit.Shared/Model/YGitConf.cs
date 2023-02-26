@@ -1,10 +1,32 @@
-﻿using System.Collections.ObjectModel; 
+﻿using System.Collections.Generic;
+using System.Collections.ObjectModel; 
 using CommunityToolkit.Mvvm.ComponentModel;
 using LibGit2Sharp;
 using Newtonsoft.Json; 
 
 namespace YGit.Model
 {
+    /// <summary>
+    /// YGitConfs
+    /// </summary>
+    internal class YGitConfs: ObservableCollection<YGitConf>
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="YGitConfs"/> class.
+        /// </summary>
+        public YGitConfs() { }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="YGitConfs"/> class.
+        /// </summary>
+        /// <param name="confs">The confs.</param>
+        public YGitConfs(IEnumerable<YGitConf> confs)
+        {
+            foreach (var item in confs) 
+                this.Add(item); 
+        }
+    }
+
     /// <summary>
     /// Represents a model of the YGit configuration.
     /// </summary> 
@@ -83,8 +105,7 @@ namespace YGit.Model
         /// </value>
         public YGitRepoConf ThirdConf { get => thirdConf; set => this.SetProperty(ref this.thirdConf, value); }
     }
-
-
+     
     /// <summary>
     /// This class provides methods to get the configuration information of a git repository.
     /// </summary>
