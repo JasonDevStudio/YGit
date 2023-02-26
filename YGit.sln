@@ -52,6 +52,7 @@ Global
 	EndGlobalSection
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		YGit.Shared\YGit.Shared.projitems*{0e3cdbc2-165d-4ae1-bdd7-1e351dd36dce}*SharedItemsImports = 4
+		YGit.Shared\YGit.Shared.projitems*{3f3e2e20-3dc1-450b-888f-e78cc5d1a076}*SharedItemsImports = 5
 		YGit.Shared\YGit.Shared.projitems*{a852f71d-6f10-475b-af0b-ad14022673e5}*SharedItemsImports = 13
 	EndGlobalSection
 EndGlobal
