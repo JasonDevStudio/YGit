@@ -1,16 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Autofac;
+﻿using Autofac;
 
 namespace YGit.Common
 {
-    internal class AddIn
+    internal abstract class AddIn
     {
         public void RegsisterTypes()
         {
-            GlobaService.ContainerBuilder.RegisterType<Logger>().As<ILogger>().PropertiesAutowired();
+            OnRegsisterTypes(GlobaService.ContainerBuilder);
             GlobaService.Container = GlobaService.ContainerBuilder.Build();
         }
+
+        public abstract void OnRegsisterTypes(ContainerBuilder container);
     }
 }

@@ -2,62 +2,61 @@
 
 using LibGit2Sharp.Handlers;
 using LibGit2Sharp;
+using YGit.Model;
+using YGit.ViewModel;
+using YGit.Common;
 
-//GlobalSettings.NativeLibraryPath = @"C:\Users\jiede\source\repos\YGit\YGitConsole\bin\Debug\net7.0\git2-182d0d1.dll";
+var addin = new YGitConsole.AddIn();
+addin.RegsisterTypes();
 
-var progressHandler = new ProgressHandler(serverProgressOutput =>
+var gitConf = new YGitConf()
 {
-    Console.WriteLine(serverProgressOutput);
-    return true;
-});
-
-var checkoutProgressHandler = new CheckoutProgressHandler((title, completedSteps, totalSteps) =>
-{
-    Console.WriteLine($"Progress update: {title} ({completedSteps} of {totalSteps} completed)."); 
-});
-
-var cloneOptions = new CloneOptions
-{
-    OnProgress = progressHandler,
-    CredentialsProvider = (url, usernameFromUrl, types) =>
-        new UsernamePasswordCredentials
-        {
-            Username = "jasondevstudio",
-            Password = "yaojie05120108"
-        }
+    BranchName ="develop",
+    Email = "yaojiestudio@gmail.com",
+    Password = "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",
+    RootPath = "D:\\Git",
+    UserName = "y95535",
+    OneConf = new YGitRepoConf
+    {
+        RemoteName = "origin",
+        RemoteUrl = "https://github.com/y95535/YGit.git",
+        RepoName = "YGit",
+        SecondRemoteName = "team_origin",
+        SecondRemoteUrl = "https://github.com/JasonDevStudio/YGit.git"
+    }
 };
 
-// Clone the repository
-var path = Repository.Clone("https://github.com/JasonDevStudio/YGit.git", @"C:\Users\jiede\Downloads\git", cloneOptions);
-var repo = new Repository(path);
+var vm = new YGitVM();
 
-// Get a reference to the branch you want to switch to 
-var remoteName = "origin";
-var remoteBranchName = "develop";
-var localBranchName = "develop"; 
+#region Clone 仓库
+await vm.CloneAsync(); // Clone 仓库
+#endregion
 
-foreach (var item in repo.Branches)
-{
-    Console.WriteLine($"{item.RemoteName}, {item.FriendlyName}, {item.CanonicalName}, {item.TrackedBranch}");
-}
+#region 提交修改文件
+//vm.CModule = "Test";
+//vm.CMsg = "提交测试";
+//vm.CommitCmd.Execute(null);
+#endregion
 
-var remoteBranch = repo.Branches[$"{remoteName}/{remoteBranchName}"];
-if (remoteBranch == null)
-{
-    throw new Exception($"Remote branch '{remoteName}/{remoteBranchName}' not found");
-}
+#region Push 推送
+//await vm.PullAsync() // 推送
+#endregion
 
-var localBranch = repo.Branches[localBranchName];
-if (localBranch != null)
-{
-    throw new Exception($"Local branch '{localBranchName}' already exists");
-}
+#region Checkout 签出分支 
+vm.CheckoutBranch = "main";
+vm.CheckoutRemoteBranch = "origin/main";
+await vm.CheckoutAsync();
+#endregion
 
-localBranch = repo.Branches.Add(localBranchName, remoteBranch.Tip);
- 
-// Switch to the branch
-Commands.Checkout(repo, localBranch, new CheckoutOptions()
-{
-    CheckoutModifiers = CheckoutModifiers.Force,
-    OnCheckoutProgress = checkoutProgressHandler
-});
+#region Pull 拉取远端分支到本地分支
+//await vm.PullAsync();
+#endregion
+
+#region Merge 合并分支
+
+vm.SourceMergeBranch = "origin/develop";
+await vm.MergeAsync();
+
+#endregion
+
+Console.ReadLine();

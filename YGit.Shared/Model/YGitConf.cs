@@ -1,13 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.ObjectModel; 
 using CommunityToolkit.Mvvm.ComponentModel;
 using LibGit2Sharp;
-using Newtonsoft.Json;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
+using Newtonsoft.Json; 
 
 namespace YGit.Model
 {
@@ -39,7 +33,7 @@ namespace YGit.Model
         /// <value>
         /// The email.
         /// </value>
-        public string Email { get => password; set => this.SetProperty(ref this.password, value); }
+        public string Email { get => this.email; set => this.SetProperty(ref this.email, value); }
 
         /// <summary>
         /// Gets or sets the password.
@@ -110,8 +104,8 @@ namespace YGit.Model
         public string RemoteName { get => remoteName; set => this.SetProperty(ref this.remoteName, value); }
         public string RemoteUrl { get => remoteUrl; set => this.SetProperty(ref this.remoteUrl, value); }      
         public string LocalPath { get => localPath; set => this.SetProperty(ref this.localPath, value); }
-        public string TeamRemoteName { get => teamRemoteName; set => this.SetProperty(ref this.teamRemoteName, value); }
-        public string TeamRemoteUrl { get => teamRemoteUrl; set => this.SetProperty(ref this.teamRemoteUrl, value); }
+        public string SecondRemoteName { get => teamRemoteName; set => this.SetProperty(ref this.teamRemoteName, value); }
+        public string SecondRemoteUrl { get => teamRemoteUrl; set => this.SetProperty(ref this.teamRemoteUrl, value); }
         public ObservableCollection<string> Branches { get => branches; set => this.SetProperty(ref this.branches, value); }
     }
 }

@@ -12,6 +12,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Common\AddIn.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Common\GlobaService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Interfaces\ILogger.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)LibGit\CheckoutNotifyHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Model\YGitConf.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ViewModel\YGitVM.cs" />
   </ItemGroup>
