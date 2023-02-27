@@ -3,14 +3,11 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LibGit2Sharp;
-using LibGit2Sharp.Handlers;
-using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio.Shell;
+using LibGit2Sharp.Handlers; 
 using YGit.Common;
 using YGit.Model;
 using Path = System.IO.Path;
@@ -39,6 +36,7 @@ namespace YGit.ViewModel
         private string checkoutBranch;
         private string checkoutRemoteBranch;
         private bool _initialized = false;
+        private ObservableCollection<string> branches;
 
         private ILogger logger => GlobaService.GetService<ILogger>();
 
@@ -74,7 +72,8 @@ namespace YGit.ViewModel
                 {
                     this.SetProperty(ref this.gitConf, value);
                     this.OnGitConfChanged(value);
-                    this.logger.WriteLine($"Repo Conf is changed, current select conf : {value.Name}");
+                    this.LoadBranches(value);
+                    this.logger.WriteLine($"Repo Conf is changed, current select conf : {value?.Name}");
                 }
             }
         }
@@ -86,6 +85,11 @@ namespace YGit.ViewModel
         /// The git confs.
         /// </value>
         public YGitConfs GitConfs { get => this.gitConfs; set => this.SetProperty(ref this.gitConfs, value); }
+
+        /// <summary>
+        /// Branches
+        /// </summary>
+        public ObservableCollection<string> Branches { get => this.branches; set => this.SetProperty(ref this.branches, value); }
 
         /// <summary>
         /// Gets or sets the name of the repo.
@@ -286,7 +290,7 @@ namespace YGit.ViewModel
                     this.PullModule(this.GitConf.ThirdConf);
             });
 
-            logger.WriteLine($"Pull repo [{this.GitConf.Name}] end."); 
+            logger.WriteLine($"Pull repo [{this.GitConf.Name}] end.");
         }
 
         /// <summary>
@@ -802,6 +806,9 @@ namespace YGit.ViewModel
         {
             this.LoadConf();
 
+            if (conf == null)
+                return default;
+
             if (string.IsNullOrWhiteSpace(conf.LocalPath))
                 throw new ArgumentNullException(nameof(conf.LocalPath));
 
@@ -837,8 +844,38 @@ namespace YGit.ViewModel
                         }
                 };
 
-                this.RepoName = conf.Name;
+                this.RepoName = conf.Name; 
             }
+        }
+
+        /// <summary>
+        /// Load Branches
+        /// </summary>
+        /// <param name="conf">YGitConf</param>
+        private void LoadBranches(YGitConf conf = null)
+        { 
+            var _branches = new System.Collections.Generic.List<string>();
+
+            if (conf != null)
+            {
+                this.Initialize(conf.OneConf);
+                this.Initialize(conf.TwoConf);
+                this.Initialize(conf.ThirdConf);
+                var _oneBranches = conf.OneConf?.Repository?.Branches.Select(m => m.FriendlyName);
+                var _twoBranches = conf.TwoConf?.Repository?.Branches.Select(m => m.FriendlyName);
+                var _thirdBranches = conf.ThirdConf?.Repository?.Branches.Select(m => m.FriendlyName);
+
+                if (_oneBranches?.Any() ?? false)
+                    _branches = _oneBranches.ToList();
+
+                if (_twoBranches?.Any() ?? false)
+                    _branches = _branches.Intersect(_twoBranches).ToList();
+
+                if (_thirdBranches?.Any() ?? false)
+                    _branches = _branches.Intersect(_thirdBranches).ToList();
+            }
+
+            this.Branches = new ObservableCollection<string>(_branches);
         }
 
         /// <summary>

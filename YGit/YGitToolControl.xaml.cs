@@ -1,6 +1,11 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Windows;
 using System.Windows.Controls;
+using EnvDTE;
+using EnvDTE80;
+using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Events;
+using Microsoft.VisualStudio.Shell.Interop;
 using YGit.ViewModel;
 
 namespace YGit
@@ -10,17 +15,78 @@ namespace YGit
     /// </summary>
     public partial class YGitToolControl : UserControl
     {
+        YGitVM gitVM;
+
+        bool isInitialized;
         /// <summary>
         /// Initializes a new instance of the <see cref="YGitToolControl"/> class.
         /// </summary>
         public YGitToolControl()
         {
             this.InitializeComponent();
-            var vm = new YGitVM(); 
-            vm.LoadConf();
-            this.DataContext = vm;
+            this.Loaded += (s,e)=>
+            {
+                var slnPath = YGitPackage.vsDTE.DTE.Solution?.FullName;
+                var events = YGitPackage.vsDTE.Solution?.DTE.Events;
+                var slnEvents = events?.SolutionEvents;
 
+                if (!string.IsNullOrWhiteSpace(slnPath))
+                {
+                    gitVM = new YGitVM(slnPath);
+                    this.DataContext = gitVM;
+                }
+                else
+                {
+                    gitVM = new YGitVM();
+                    gitVM.LoadConf();
+                    this.DataContext = gitVM;
+                }
+
+                if (slnEvents != null && !isInitialized)
+                {
+                    slnEvents.Opened += () =>
+                    {
+                        gitVM.RepoPath = slnPath;
+                        gitVM.LoadConf();
+                    };
+
+                    slnEvents.AfterClosing += () => gitVM.GitConf = null;
+                    isInitialized = true;
+                }
+            };
+
+            this.IsVisibleChanged += (s, e) =>
+            {
+                var slnPath = YGitPackage.vsDTE.DTE.Solution?.FullName;
+                var events = YGitPackage.vsDTE.Solution?.DTE.Events;
+                var slnEvents = events?.SolutionEvents;
+
+                if (!string.IsNullOrWhiteSpace(slnPath))
+                {
+                    gitVM = new YGitVM(slnPath);
+                    this.DataContext = gitVM;
+                }
+                else
+                {
+                    gitVM = new YGitVM();
+                    gitVM.LoadConf();
+                    this.DataContext = gitVM;
+                }
+
+                if (slnEvents != null && !isInitialized)
+                {
+                    slnEvents.Opened += () =>
+                    {
+                        gitVM.RepoPath = slnPath;
+                        gitVM.LoadConf();
+                    };
+
+                    slnEvents.AfterClosing += () => gitVM.GitConf = null;
+                    isInitialized = true;
+                }
+            };
         }
+
 
         /// <summary>
         /// Handles click on the button by displaying a message box.

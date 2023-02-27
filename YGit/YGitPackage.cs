@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using System.Threading;
+using EnvDTE;
+using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Task = System.Threading.Tasks.Task;
@@ -36,6 +38,8 @@ namespace YGit
 
         public static string LoggerName = "YGit";
 
+        public static DTE2 vsDTE;
+
         /// <summary>
         /// YGitPackage GUID string.
         /// </summary>
@@ -54,9 +58,10 @@ namespace YGit
         {
             // When initialized asynchronously, the current thread may be a background thread at this point.
             // Do any initialization that requires the UI thread after switching to the UI thread.
-            await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-            await YGitCmd.InitializeAsync(this);
+            await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);            
             vsOutput = (IVsOutputWindow)GetService(typeof(SVsOutputWindow));
+            vsDTE = (DTE2)GetService(typeof(DTE));
+            await YGitCmd.InitializeAsync(this);
         }
 
         #endregion
