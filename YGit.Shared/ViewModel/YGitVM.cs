@@ -37,6 +37,7 @@ namespace YGit.ViewModel
         private string checkoutRemoteBranch;
         private bool _initialized = false;
         private ObservableCollection<string> branches;
+        private ObservableCollection<string> remoteBranches;
 
         private ILogger logger => GlobaService.GetService<ILogger>();
 
@@ -90,6 +91,11 @@ namespace YGit.ViewModel
         /// Branches
         /// </summary>
         public ObservableCollection<string> Branches { get => this.branches; set => this.SetProperty(ref this.branches, value); }
+
+        /// <summary>
+        /// RemoteBranchs
+        /// </summary>
+        public ObservableCollection<string> RemoteBranchs { get => this.branches; set => this.SetProperty(ref this.branches, value); }
 
         /// <summary>
         /// Gets or sets the name of the repo.
@@ -855,6 +861,7 @@ namespace YGit.ViewModel
         private void LoadBranches(YGitConf conf = null)
         { 
             var _branches = new System.Collections.Generic.List<string>();
+            var _rbranches = new System.Collections.Generic.List<string>();
 
             if (conf != null)
             {
@@ -866,16 +873,27 @@ namespace YGit.ViewModel
                 var _thirdBranches = conf.ThirdConf?.Repository?.Branches.Select(m => m.FriendlyName);
 
                 if (_oneBranches?.Any() ?? false)
-                    _branches = _oneBranches.ToList();
+                {
+                    _branches = _oneBranches.Where(m=>!m.Contains("/")).ToList();
+                    _rbranches = _oneBranches.Where(m=>m.Contains("/")).ToList();
+                }
 
                 if (_twoBranches?.Any() ?? false)
-                    _branches = _branches.Intersect(_twoBranches).ToList();
+                { 
+                    _branches = _branches.Intersect(_twoBranches.Where(m => !m.Contains("/"))).ToList();
+                    _rbranches = _branches.Intersect(_twoBranches.Where(m => m.Contains("/"))).ToList();
+                }
 
                 if (_thirdBranches?.Any() ?? false)
-                    _branches = _branches.Intersect(_thirdBranches).ToList();
+                {
+                    _branches = _branches.Intersect(_thirdBranches.Where(m => !m.Contains("/"))).ToList();
+                    _rbranches = _branches.Intersect(_thirdBranches.Where(m => m.Contains("/"))).ToList(); 
+                }
             }
 
             this.Branches = new ObservableCollection<string>(_branches);
+            this.RemoteBranchs = new ObservableCollection<string>(_rbranches);
+            this.logger.WriteLine($"Branches is loaded. local branches count: {this.Branches.Count},remote ranches count: {this.RemoteBranchs.Count}");
         }
 
         /// <summary>
