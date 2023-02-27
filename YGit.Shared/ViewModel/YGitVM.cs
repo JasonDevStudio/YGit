@@ -3,11 +3,14 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LibGit2Sharp;
 using LibGit2Sharp.Handlers;
+using Microsoft.VisualStudio.Shell.Interop;
+using Microsoft.VisualStudio.Shell;
 using YGit.Common;
 using YGit.Model;
 using Path = System.IO.Path;
@@ -67,8 +70,12 @@ namespace YGit.ViewModel
             get => this.gitConf;
             set
             {
-                this.SetProperty(ref this.gitConf, value);
-                this.OnGitConfChanged(value);
+                if (value != this.gitConf)
+                {
+                    this.SetProperty(ref this.gitConf, value);
+                    this.OnGitConfChanged(value);
+                    this.logger.WriteLine($"Repo Conf is changed, current select conf : {value.Name}");
+                }
             }
         }
 
@@ -151,6 +158,14 @@ namespace YGit.ViewModel
         /// The pull command.
         /// </value>
         public ICommand PullCmd => new AsyncRelayCommand(PullAsync);
+
+        /// <summary>
+        /// Gets or sets the fetch command.
+        /// </summary>
+        /// <value>
+        /// The fetch command.
+        /// </value>
+        public ICommand FetchCmd => new AsyncRelayCommand(FetchAsync);
 
         /// <summary>
         /// Gets or sets the merge command.
@@ -270,6 +285,31 @@ namespace YGit.ViewModel
                 if (this.GitConf.ThirdConf != null)
                     this.PullModule(this.GitConf.ThirdConf);
             });
+
+            logger.WriteLine($"Pull repo [{this.GitConf.Name}] end."); 
+        }
+
+        /// <summary>
+        /// fetch the asynchronous.
+        /// </summary>
+        public async Task FetchAsync()
+        {
+            this.LoadConf();
+            this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
+
+            await Task.Run(() =>
+            {
+                if (this.GitConf.OneConf != null)
+                    this.FetchModule(this.GitConf.OneConf);
+
+                if (this.GitConf.TwoConf != null)
+                    this.FetchModule(this.GitConf.TwoConf);
+
+                if (this.GitConf.ThirdConf != null)
+                    this.FetchModule(this.GitConf.ThirdConf);
+            });
+
+            logger.WriteLine($"Fetch repo [{this.GitConf.Name}] end.");
         }
 
         /// <summary>
@@ -400,6 +440,8 @@ namespace YGit.ViewModel
                 Commands.Fetch(conf.Repository, conf.RemoteName, orefSpecs, fetchOpts, null);
                 Commands.Pull(conf.Repository, signature, new PullOptions { FetchOptions = fetchOpts });
 
+                logger.WriteLine($"Repo branch '{conf.RemoteName}/{this.GitConf.BranchName}' pull completed.");
+
                 #endregion
 
                 #region 团仓
@@ -433,6 +475,8 @@ namespace YGit.ViewModel
 
                         conf.Repository.Commit($"Merge branch '{conf.SecondRemoteName}/{this.GitConf.BranchName}' into {this.GitConf.BranchName} .", signature, signature);
                     }
+
+                    logger.WriteLine($"Repo branch '{conf.SecondRemoteName}/{this.GitConf.BranchName}' pull completed.");
                 }
 
                 #endregion
@@ -461,11 +505,12 @@ namespace YGit.ViewModel
                 {
                     this.AddRemote(conf);
                     this.SetPushUrl(conf);
-                    this.Fetch(conf);
+                    this.FetchModule(conf);
                 }
 
                 conf.Branches?.Clear();
                 conf.Branches = new ObservableCollection<string>(conf.Repository.Branches.Select(m => m.FriendlyName));
+                logger.WriteLine($"Repo: {conf.RepoName} , Branche： {this.GitConf.BranchName} clone completed.");
             }
             catch (Exception ex)
             {
@@ -675,7 +720,7 @@ namespace YGit.ViewModel
         /// or
         /// Remote '{conf.TeamRemoteName}' not found
         /// </exception>
-        private void Fetch(YGitRepoConf conf)
+        private void FetchModule(YGitRepoConf conf)
         {
             try
             {
@@ -693,6 +738,7 @@ namespace YGit.ViewModel
 
                 var remoteRefSpecs = remote.FetchRefSpecs.Select(x => x.Specification);
                 Commands.Fetch(conf.Repository, remote.Name, remoteRefSpecs, fetchOpts, null);
+                logger.WriteLine($"Fetch repo [{remote.Name}/{this.GitConf.BranchName}] completed.");
 
                 #endregion
 
@@ -708,7 +754,7 @@ namespace YGit.ViewModel
 
                 var teamRemoteRefSpecs = teamRemote.FetchRefSpecs.Select(x => x.Specification);
                 Commands.Fetch(conf.Repository, teamRemote.Name, teamRemoteRefSpecs, fetchOpts, null);
-
+                logger.WriteLine($"Fetch repo [{teamRemote.Name}/{this.GitConf.BranchName}] completed.");
                 #endregion
 
                 conf.Branches?.Clear();
@@ -798,7 +844,7 @@ namespace YGit.ViewModel
         /// <summary>
         /// Loads the conf.
         /// </summary>
-        private void LoadConf()
+        internal void LoadConf()
         {
             if (!(this.GitConfs?.Any() ?? false))
             {

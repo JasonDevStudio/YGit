@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Windows;
 using System.Windows.Controls;
+using YGit.ViewModel;
 
 namespace YGit
 {
@@ -15,6 +16,10 @@ namespace YGit
         public YGitToolControl()
         {
             this.InitializeComponent();
+            var vm = new YGitVM(); 
+            vm.LoadConf();
+            this.DataContext = vm;
+
         }
 
         /// <summary>

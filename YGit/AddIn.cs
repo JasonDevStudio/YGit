@@ -1,13 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Autofac;
 using YGit.Common;
-using YGit;
-using Autofac;
 
-namespace YGitConsole
+namespace YGit
 {
     internal class AddIn : YGit.Common.AddIn
     {

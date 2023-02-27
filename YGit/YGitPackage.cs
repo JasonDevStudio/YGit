@@ -32,6 +32,10 @@ namespace YGit
     { 
         public static Logger VSLogger;
 
+        public static IVsOutputWindow vsOutput;
+
+        public static string LoggerName = "YGit";
+
         /// <summary>
         /// YGitPackage GUID string.
         /// </summary>
@@ -51,10 +55,8 @@ namespace YGit
             // When initialized asynchronously, the current thread may be a background thread at this point.
             // Do any initialization that requires the UI thread after switching to the UI thread.
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-            await YGitToolCommand.InitializeAsync(this);
-            var vsOutput = (IVsOutputWindow)GetService(typeof(SVsOutputWindow));
-            VSLogger = new Logger(vsOutput, "YGit");
-            VSLogger.WriteLine("YGit initialized.");
+            await YGitCmd.InitializeAsync(this);
+            vsOutput = (IVsOutputWindow)GetService(typeof(SVsOutputWindow));
         }
 
         #endregion

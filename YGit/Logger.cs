@@ -18,6 +18,10 @@ namespace YGit
             outputWindow.GetPane(ref guid, out outputPane);
         }
 
+        public Logger():this(YGitPackage.vsOutput, YGitPackage.LoggerName)
+        { 
+        }
+
         public bool WriteLine(string message)
         {
             outputPane.OutputStringThreadSafe(message + Environment.NewLine); 
