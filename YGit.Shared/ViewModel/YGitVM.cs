@@ -7,7 +7,7 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LibGit2Sharp;
-using LibGit2Sharp.Handlers; 
+using LibGit2Sharp.Handlers;
 using YGit.Common;
 using YGit.Model;
 using Path = System.IO.Path;
@@ -95,7 +95,7 @@ namespace YGit.ViewModel
         /// <summary>
         /// RemoteBranchs
         /// </summary>
-        public ObservableCollection<string> RemoteBranchs { get => this.branches; set => this.SetProperty(ref this.branches, value); }
+        public ObservableCollection<string> RemoteBranchs { get => this.remoteBranches; set => this.SetProperty(ref this.remoteBranches, value); }
 
         /// <summary>
         /// Gets or sets the name of the repo.
@@ -143,7 +143,7 @@ namespace YGit.ViewModel
         /// <value>
         /// The target checkout branch.
         /// </value>
-        public string CheckoutBranch { get => this.checkoutBranch; set => this.SetProperty(ref this.checkoutBranch, value); }
+        public string CBranch { get => this.checkoutBranch; set => this.SetProperty(ref this.checkoutBranch, value); }
 
         /// <summary>
         /// Gets or sets the checkout remote branch.
@@ -151,7 +151,7 @@ namespace YGit.ViewModel
         /// <value>
         /// The checkout remote branch.
         /// </value>
-        public string CheckoutRemoteBranch { get => this.checkoutRemoteBranch; set => this.SetProperty(ref this.checkoutRemoteBranch, value); }
+        public string CRemoteBranch { get => this.checkoutRemoteBranch; set => this.SetProperty(ref this.checkoutRemoteBranch, value); }
 
         /// <summary>
         /// Gets or sets the clone command.
@@ -224,6 +224,14 @@ namespace YGit.ViewModel
         /// The save conf command.
         /// </value>
         public ICommand SaveConfsCmd => new RelayCommand(SaveConfs);
+
+        /// <summary>
+        /// Gets the load conf command.
+        /// </summary>
+        /// <value>
+        /// The load conf command.
+        /// </value>
+        public ICommand LoadConfCmd => new RelayCommand(LoadConf);
 
         /// <summary>
         /// Initializes the specified currpath.
@@ -365,11 +373,11 @@ namespace YGit.ViewModel
         /// </exception>
         public async Task CheckoutAsync()
         {
-            if (string.IsNullOrWhiteSpace(this.CheckoutRemoteBranch))
-                throw new ArgumentNullException(nameof(this.CheckoutRemoteBranch));
+            if (string.IsNullOrWhiteSpace(this.CRemoteBranch))
+                throw new ArgumentNullException(nameof(this.CRemoteBranch));
 
-            if (string.IsNullOrWhiteSpace(this.CheckoutBranch))
-                throw new ArgumentNullException(nameof(this.CheckoutBranch));
+            if (string.IsNullOrWhiteSpace(this.CBranch))
+                throw new ArgumentNullException(nameof(this.CBranch));
 
             this.LoadConf();
             this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
@@ -385,9 +393,9 @@ namespace YGit.ViewModel
                 if (this.GitConf.ThirdConf != null)
                     this.CheckoutModule(this.GitConf.ThirdConf);
 
-                this.GitConf.BranchName = this.CheckoutBranch;
-                this.CheckoutBranch = null;
-                this.CheckoutRemoteBranch = null;
+                this.GitConf.BranchName = this.CBranch;
+                this.CBranch = null;
+                this.CRemoteBranch = null;
             });
         }
 
@@ -561,11 +569,11 @@ namespace YGit.ViewModel
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(this.CheckoutBranch))
-                    throw new ArgumentNullException(nameof(this.CheckoutBranch));
+                if (string.IsNullOrWhiteSpace(this.CBranch))
+                    throw new ArgumentNullException(nameof(this.CBranch));
 
-                if (string.IsNullOrWhiteSpace(this.CheckoutRemoteBranch))
-                    throw new ArgumentNullException(nameof(this.CheckoutRemoteBranch));
+                if (string.IsNullOrWhiteSpace(this.CRemoteBranch))
+                    throw new ArgumentNullException(nameof(this.CRemoteBranch));
 
                 this.Initialize(conf);
 
@@ -577,10 +585,10 @@ namespace YGit.ViewModel
                 var secondRefSpecs = secondRemote.FetchRefSpecs.Select(x => x.Specification);
                 Commands.Fetch(conf.Repository, conf.SecondRemoteName, secondRefSpecs, fetchOpts, null);
 
-                var localBranch = conf.Repository.Branches[this.CheckoutBranch];
+                var localBranch = conf.Repository.Branches[this.CBranch];
                 if (localBranch == null)
                 {
-                    var branch = conf.Repository.CreateBranch(this.CheckoutBranch, this.checkoutRemoteBranch);
+                    var branch = conf.Repository.CreateBranch(this.CBranch, this.checkoutRemoteBranch);
                     Commands.Checkout(conf.Repository, branch, checkoutOpts);
                     conf.Repository.Branches.Update(branch, b => b.Remote = conf.RemoteName, b => b.UpstreamBranch = branch.CanonicalName);
                 }
@@ -850,16 +858,37 @@ namespace YGit.ViewModel
                         }
                 };
 
-                this.RepoName = conf.Name; 
+                this.RepoName = conf.Name;
+
+                this.LoadBranches(conf);
             }
+        }
+
+        /// <summary>
+        /// Loads the current branches.
+        /// </summary> 
+        internal void LoadCurrentBranche()
+        {
+            if (this.GitConf == null)
+            {
+                this.CBranch = null;
+                this.CRemoteBranch = null;
+                return;
+            }
+
+            if (this.Branches?.Any() ?? false)
+                this.CBranch = this.GitConf?.OneConf?.Repository?.Head?.FriendlyName;
+
+            if (this.RemoteBranchs?.Any() ?? false)
+                this.CRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CBranch));
         }
 
         /// <summary>
         /// Load Branches
         /// </summary>
         /// <param name="conf">YGitConf</param>
-        private void LoadBranches(YGitConf conf = null)
-        { 
+        internal void LoadBranches(YGitConf conf = null)
+        {
             var _branches = new System.Collections.Generic.List<string>();
             var _rbranches = new System.Collections.Generic.List<string>();
 
@@ -874,12 +903,12 @@ namespace YGit.ViewModel
 
                 if (_oneBranches?.Any() ?? false)
                 {
-                    _branches = _oneBranches.Where(m=>!m.Contains("/")).ToList();
-                    _rbranches = _oneBranches.Where(m=>m.Contains("/")).ToList();
+                    _branches = _oneBranches.Where(m => !m.Contains("/")).ToList();
+                    _rbranches = _oneBranches.Where(m => m.Contains("/")).ToList();
                 }
 
                 if (_twoBranches?.Any() ?? false)
-                { 
+                {
                     _branches = _branches.Intersect(_twoBranches.Where(m => !m.Contains("/"))).ToList();
                     _rbranches = _branches.Intersect(_twoBranches.Where(m => m.Contains("/"))).ToList();
                 }
@@ -887,13 +916,19 @@ namespace YGit.ViewModel
                 if (_thirdBranches?.Any() ?? false)
                 {
                     _branches = _branches.Intersect(_thirdBranches.Where(m => !m.Contains("/"))).ToList();
-                    _rbranches = _branches.Intersect(_thirdBranches.Where(m => m.Contains("/"))).ToList(); 
+                    _rbranches = _branches.Intersect(_thirdBranches.Where(m => m.Contains("/"))).ToList();
                 }
             }
 
             this.Branches = new ObservableCollection<string>(_branches);
             this.RemoteBranchs = new ObservableCollection<string>(_rbranches);
             this.logger.WriteLine($"Branches is loaded. local branches count: {this.Branches.Count},remote ranches count: {this.RemoteBranchs.Count}");
+
+            if (this.Branches?.Any() ?? false)
+                this.CBranch = conf?.OneConf?.Repository?.Head?.FriendlyName;
+
+            if (this.RemoteBranchs?.Any() ?? false)
+                this.CRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CBranch));
         }
 
         /// <summary>

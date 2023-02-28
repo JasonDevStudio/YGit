@@ -17,6 +17,8 @@ namespace YGit
     {
         YGitVM gitVM;
 
+        System.Threading.Timer timer;
+
         bool isInitialized;
         /// <summary>
         /// Initializes a new instance of the <see cref="YGitToolControl"/> class.
@@ -24,67 +26,29 @@ namespace YGit
         public YGitToolControl()
         {
             this.InitializeComponent();
-            this.Loaded += (s,e)=>
+            var slnPath = YGitPackage.vsDTE.DTE.Solution?.FullName;
+            var events = YGitPackage.vsDTE.Solution?.DTE.Events;
+            var slnEvents = events?.SolutionEvents;
+            gitVM = new YGitVM();
+            this.DataContext = gitVM;
+            slnEvents.AfterClosing += () => gitVM.GitConf = null;
+            slnEvents.Opened += () =>
             {
-                var slnPath = YGitPackage.vsDTE.DTE.Solution?.FullName;
-                var events = YGitPackage.vsDTE.Solution?.DTE.Events;
-                var slnEvents = events?.SolutionEvents;
+                gitVM.RepoPath = slnPath;
+                gitVM.LoadConf();
+            }; 
 
-                if (!string.IsNullOrWhiteSpace(slnPath))
-                {
-                    gitVM = new YGitVM(slnPath);
-                    this.DataContext = gitVM;
-                }
-                else
-                {
-                    gitVM = new YGitVM();
-                    gitVM.LoadConf();
-                    this.DataContext = gitVM;
-                }
-
-                if (slnEvents != null && !isInitialized)
-                {
-                    slnEvents.Opened += () =>
-                    {
-                        gitVM.RepoPath = slnPath;
-                        gitVM.LoadConf();
-                    };
-
-                    slnEvents.AfterClosing += () => gitVM.GitConf = null;
-                    isInitialized = true;
-                }
-            };
-
-            this.IsVisibleChanged += (s, e) =>
+            timer = new System.Threading.Timer(obj =>
             {
-                var slnPath = YGitPackage.vsDTE.DTE.Solution?.FullName;
-                var events = YGitPackage.vsDTE.Solution?.DTE.Events;
-                var slnEvents = events?.SolutionEvents;
-
-                if (!string.IsNullOrWhiteSpace(slnPath))
+                gitVM.RepoPath = YGitPackage.vsDTE.DTE.Solution?.FullName;
+                if (!string.IsNullOrWhiteSpace(gitVM.RepoPath))
                 {
-                    gitVM = new YGitVM(slnPath);
-                    this.DataContext = gitVM;
-                }
-                else
-                {
-                    gitVM = new YGitVM();
                     gitVM.LoadConf();
-                    this.DataContext = gitVM;
+                    gitVM.LoadCurrentBranche();
+                    timer.Dispose();
                 }
 
-                if (slnEvents != null && !isInitialized)
-                {
-                    slnEvents.Opened += () =>
-                    {
-                        gitVM.RepoPath = slnPath;
-                        gitVM.LoadConf();
-                    };
-
-                    slnEvents.AfterClosing += () => gitVM.GitConf = null;
-                    isInitialized = true;
-                }
-            };
+            }, null, 5000, 5000); 
         }
 
 
