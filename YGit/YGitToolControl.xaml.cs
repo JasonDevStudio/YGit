@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Windows;
 using System.Windows.Controls;
 using EnvDTE;
@@ -36,7 +37,7 @@ namespace YGit
             {
                 gitVM.RepoPath = slnPath;
                 gitVM.LoadConf();
-            }; 
+            };
 
             timer = new System.Threading.Timer(obj =>
             {
@@ -45,12 +46,77 @@ namespace YGit
                 {
                     gitVM.LoadConf();
                     gitVM.LoadCurrentBranche();
-                    timer.Dispose();
                 }
 
-            }, null, 5000, 5000); 
+            }, null, 5000, 60000);
+
+            // 推送前触发事件  触发项目编译
+            gitVM.BeforePushEvent = () =>
+            {
+                var iscompiled = true;
+                var projects = GetEditedProjects(YGitPackage.vsDTE.DTE);
+
+                foreach (var project in projects)
+                    iscompiled &= CompileProject(YGitPackage.vsDTE.DTE, project);
+
+                gitVM.IsCompiled = iscompiled;
+            };
         }
 
+        /// <summary>
+        /// Compiles the project.
+        /// </summary>
+        /// <param name="dte">The DTE.</param>
+        /// <param name="projectName">Name of the project.</param>
+        /// <returns></returns>
+        private bool CompileProject(DTE dte, string projectName)
+        {
+            Solution2 solution = (Solution2)dte.Solution;
+            Project project = solution.Projects.Item(projectName);
+
+            if (project == null)
+            {
+                return true;
+            }
+
+            solution.SolutionBuild.BuildProject(solution.SolutionBuild.ActiveConfiguration.Name, project.UniqueName, true);
+
+            if (solution.SolutionBuild.LastBuildInfo == 0)
+            {
+                // Build succeeded
+                return true;
+            }
+            else
+            {
+                // Build failed
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Gets the edited projects.
+        /// </summary>
+        /// <param name="dte">The DTE.</param>
+        /// <returns></returns>
+        private List<string> GetEditedProjects(DTE dte)
+        {
+            Solution solution = dte.Solution;
+            List<string> editedProjects = new List<string>();
+
+            foreach (Project project in solution.Projects)
+            {
+                foreach (ProjectItem item in project.ProjectItems)
+                {
+                    if (item.IsDirty)
+                    {
+                        editedProjects.Add(project.Name);
+                        break;
+                    }
+                }
+            }
+
+            return editedProjects;
+        }
 
         /// <summary>
         /// Handles click on the button by displaying a message box.

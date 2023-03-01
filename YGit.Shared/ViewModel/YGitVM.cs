@@ -35,7 +35,10 @@ namespace YGit.ViewModel
         private string sourceMergeBranch;
         private string checkoutBranch;
         private string checkoutRemoteBranch;
+        private string currentBranch;
+        private string currentRemoteBranch;
         private bool _initialized = false;
+        private bool iscompiled = false;
         private ObservableCollection<string> branches;
         private ObservableCollection<string> remoteBranches;
 
@@ -138,12 +141,28 @@ namespace YGit.ViewModel
         public string SourceMergeBranch { get => this.sourceMergeBranch; set => this.SetProperty(ref this.sourceMergeBranch, value); }
 
         /// <summary>
+        /// Gets or sets the current branch.
+        /// </summary>
+        /// <value>
+        /// The current branch.
+        /// </value>
+        public string CurrentBranch { get => this.currentBranch; set => this.SetProperty(ref this.currentBranch, value); }
+
+        /// <summary>
+        /// Gets or sets the current remote branch.
+        /// </summary>
+        /// <value>
+        /// The current remote branch.
+        /// </value>
+        public string CurrentRemoteBranch { get => this.currentRemoteBranch; set => this.SetProperty(ref this.currentRemoteBranch, value); }
+
+        /// <summary>
         /// Gets or sets the target checkout branch.
         /// </summary>
         /// <value>
         /// The target checkout branch.
         /// </value>
-        public string CBranch { get => this.checkoutBranch; set => this.SetProperty(ref this.checkoutBranch, value); }
+        public string CheckoutBranch { get => this.checkoutBranch; set => this.SetProperty(ref this.checkoutBranch, value); }
 
         /// <summary>
         /// Gets or sets the checkout remote branch.
@@ -151,7 +170,23 @@ namespace YGit.ViewModel
         /// <value>
         /// The checkout remote branch.
         /// </value>
-        public string CRemoteBranch { get => this.checkoutRemoteBranch; set => this.SetProperty(ref this.checkoutRemoteBranch, value); }
+        public string CheckoutRemoteBranch
+        {
+            get => this.checkoutRemoteBranch;
+            set
+            {
+                this.SetProperty(ref this.checkoutRemoteBranch, value);
+                this.CheckoutBranch = value?.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries)?.LastOrDefault();
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is compiled.
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if this instance is compiled; otherwise, <c>false</c>.
+        /// </value>
+        public bool IsCompiled { get => this.iscompiled; set => this.SetProperty(ref this.iscompiled, value); }
 
         /// <summary>
         /// Gets or sets the clone command.
@@ -232,6 +267,14 @@ namespace YGit.ViewModel
         /// The load conf command.
         /// </value>
         public ICommand LoadConfCmd => new RelayCommand(LoadConf);
+
+        /// <summary>
+        /// Gets or sets the before event.
+        /// </summary>
+        /// <value>
+        /// The before event.
+        /// </value>
+        public Action BeforePushEvent { get; set; }
 
         /// <summary>
         /// Initializes the specified currpath.
@@ -373,11 +416,11 @@ namespace YGit.ViewModel
         /// </exception>
         public async Task CheckoutAsync()
         {
-            if (string.IsNullOrWhiteSpace(this.CRemoteBranch))
-                throw new ArgumentNullException(nameof(this.CRemoteBranch));
+            if (string.IsNullOrWhiteSpace(this.CheckoutRemoteBranch))
+                throw new ArgumentNullException(nameof(this.CheckoutRemoteBranch));
 
-            if (string.IsNullOrWhiteSpace(this.CBranch))
-                throw new ArgumentNullException(nameof(this.CBranch));
+            if (string.IsNullOrWhiteSpace(this.CheckoutBranch))
+                throw new ArgumentNullException(nameof(this.CheckoutBranch));
 
             this.LoadConf();
             this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
@@ -393,9 +436,9 @@ namespace YGit.ViewModel
                 if (this.GitConf.ThirdConf != null)
                     this.CheckoutModule(this.GitConf.ThirdConf);
 
-                this.GitConf.BranchName = this.CBranch;
-                this.CBranch = null;
-                this.CRemoteBranch = null;
+                this.GitConf.BranchName = this.CheckoutBranch;
+                this.CheckoutBranch = null;
+                this.CheckoutRemoteBranch = null;
             });
         }
 
@@ -424,6 +467,23 @@ namespace YGit.ViewModel
         /// Push the asynchronous.
         /// </summary>
         public async Task PushAsync()
+        {
+            if (this.BeforePushEvent == null)
+            {
+                await PushGitAsync();
+            }
+            else
+            {
+                this.BeforePushEvent?.Invoke();
+                if (IsCompiled)
+                    await this.PushGitAsync();
+            }
+        }
+
+        /// <summary>
+        /// Push the asynchronous.
+        /// </summary>
+        public async Task PushGitAsync()
         {
             this.LoadConf();
             this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
@@ -569,11 +629,11 @@ namespace YGit.ViewModel
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(this.CBranch))
-                    throw new ArgumentNullException(nameof(this.CBranch));
+                if (string.IsNullOrWhiteSpace(this.CheckoutBranch))
+                    throw new ArgumentNullException(nameof(this.CheckoutBranch));
 
-                if (string.IsNullOrWhiteSpace(this.CRemoteBranch))
-                    throw new ArgumentNullException(nameof(this.CRemoteBranch));
+                if (string.IsNullOrWhiteSpace(this.CheckoutRemoteBranch))
+                    throw new ArgumentNullException(nameof(this.CheckoutRemoteBranch));
 
                 this.Initialize(conf);
 
@@ -585,10 +645,10 @@ namespace YGit.ViewModel
                 var secondRefSpecs = secondRemote.FetchRefSpecs.Select(x => x.Specification);
                 Commands.Fetch(conf.Repository, conf.SecondRemoteName, secondRefSpecs, fetchOpts, null);
 
-                var localBranch = conf.Repository.Branches[this.CBranch];
+                var localBranch = conf.Repository.Branches[this.CheckoutBranch];
                 if (localBranch == null)
                 {
-                    var branch = conf.Repository.CreateBranch(this.CBranch, this.checkoutRemoteBranch);
+                    var branch = conf.Repository.CreateBranch(this.CheckoutBranch, this.checkoutRemoteBranch);
                     Commands.Checkout(conf.Repository, branch, checkoutOpts);
                     conf.Repository.Branches.Update(branch, b => b.Remote = conf.RemoteName, b => b.UpstreamBranch = branch.CanonicalName);
                 }
@@ -871,16 +931,16 @@ namespace YGit.ViewModel
         {
             if (this.GitConf == null)
             {
-                this.CBranch = null;
-                this.CRemoteBranch = null;
+                this.CheckoutBranch = null;
+                this.CheckoutRemoteBranch = null;
                 return;
             }
 
             if (this.Branches?.Any() ?? false)
-                this.CBranch = this.GitConf?.OneConf?.Repository?.Head?.FriendlyName;
+                this.CurrentBranch = this.GitConf?.OneConf?.Repository?.Head?.FriendlyName;
 
             if (this.RemoteBranchs?.Any() ?? false)
-                this.CRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CBranch));
+                this.CurrentRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CheckoutBranch));
         }
 
         /// <summary>
@@ -925,10 +985,16 @@ namespace YGit.ViewModel
             this.logger.WriteLine($"Branches is loaded. local branches count: {this.Branches.Count},remote ranches count: {this.RemoteBranchs.Count}");
 
             if (this.Branches?.Any() ?? false)
-                this.CBranch = conf?.OneConf?.Repository?.Head?.FriendlyName;
+            {
+                this.CheckoutBranch = conf?.OneConf?.Repository?.Head?.FriendlyName;
+                this.CurrentBranch = this.GitConf?.OneConf?.Repository?.Head?.FriendlyName;
+            }
 
             if (this.RemoteBranchs?.Any() ?? false)
-                this.CRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CBranch));
+            {
+                this.CheckoutRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CheckoutBranch));
+                this.CurrentRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CheckoutBranch));
+            }
         }
 
         /// <summary>
