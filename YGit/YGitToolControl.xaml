@@ -31,27 +31,32 @@
             <RowDefinition Height="auto"></RowDefinition>
             <RowDefinition Height="auto"></RowDefinition>
             <RowDefinition Height="auto"></RowDefinition>
+            <RowDefinition Height="auto"></RowDefinition>
         </Grid.RowDefinitions>
 
-        <ComboBox  Grid.Column="0" Grid.Row="0" ItemsSource="{Binding GitConfs}"  SelectedValuePath="Name" DisplayMemberPath="Name" SelectedItem="{Binding GitConf}"></ComboBox>
-        <TextBox  Grid.Column="1" Grid.Row="0" IsReadOnly="True" Text="{Binding CurrentBranch}"></TextBox>
-        <TextBox  Grid.Column="2" Grid.Row="0" IsReadOnly="True" Text="{Binding CurrentRemoteBranch}"></TextBox>
-        <Button  Grid.Column="0" Grid.Row="1" Command="{Binding LoadConfCmd}" Content="Load"></Button>
-        <Button  Grid.Column="1" Grid.Row="1" Command="{Binding CloneCmd}" Content="Clone"></Button>
-        <Button  Grid.Column="2" Grid.Row="1" Command="{Binding FetchCmd}" Content="Fetch"></Button>
-        <Button  Grid.Column="3" Grid.Row="1" Command="{Binding FetchCmd}" IsEnabled="False" Content="Add"></Button>
+        <ComboBox  Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="2" ItemsSource="{Binding GitConfs}"  SelectedValuePath="Name" DisplayMemberPath="Name" SelectedItem="{Binding GitConf}"></ComboBox>
+        <TextBox  Grid.Column="2" Grid.Row="0" IsReadOnly="True" Text="{Binding CurrentBranch}"></TextBox>
+        <TextBox  Grid.Column="3" Grid.Row="0" IsReadOnly="True" Text="{Binding CurrentRemoteBranch}"></TextBox>
+        <Button  Grid.Column="0" Grid.Row="1" Command="{Binding LoadConfCmd}" Content="加载"></Button>
+        <Button  Grid.Column="1" Grid.Row="1" Command="{Binding CloneCmd}" Content="克隆"></Button>
+        <Button  Grid.Column="2" Grid.Row="1" Command="{Binding FetchCmd}" Content="获取远端"></Button>
+        <Button  Grid.Column="3" Grid.Row="1" Command="{Binding FetchCmd}" IsEnabled="False" Content="新增配置"></Button>
         
         <Separator Grid.Column="0" Grid.Row="2" Grid.ColumnSpan="4" Width="1" Height="Auto" VerticalAlignment="Stretch" HorizontalAlignment="Center" />
         <TextBox  Grid.Column="0" Grid.Row="3"  Text="{Binding CheckoutBranch, Mode=TwoWay}"></TextBox>
         <ComboBox  Grid.Column="1" Grid.Row="3" ItemsSource="{Binding RemoteBranchs}" IsEditable="False" SelectedValue="{Binding CheckoutRemoteBranch, Mode=TwoWay}"></ComboBox>
-        <Button  Grid.Column="2" Grid.Row="3" Command="{Binding PullCmd}" Content="Pull"></Button>
-        <Button  Grid.Column="3" Grid.Row="3" Command="{Binding CheckoutCmd}" Content="Checkout"></Button>
-       
+        <Button  Grid.Column="2" Grid.Row="3" Command="{Binding PullCmd}" Content="拉取"></Button>
+        <Button  Grid.Column="3" Grid.Row="3" Command="{Binding CheckoutCmd}" Content="签出分支"></Button>
+
         <Separator Grid.Column="0" Grid.Row="4" Grid.ColumnSpan="4" Width="1" Height="Auto" VerticalAlignment="Stretch" HorizontalAlignment="Center" />
-        <TextBox  Grid.Column="0" Grid.Row="5" Grid.ColumnSpan="2"  Text="{Binding CModule, Mode=TwoWay}"></TextBox>
-        <Button  Grid.Column="2" Grid.Row="5" Command="{Binding CommitCmd}" Content="Commit"></Button>
-        <Button  Grid.Column="3" Grid.Row="5" Command="{Binding PushCmd}" Content="Push"></Button>
-        <TextBox Grid.Column="0" Grid.Row="6" Grid.ColumnSpan="4" AcceptsReturn="True" Height="50" TextWrapping="Wrap" Text="{Binding CMsg, Mode=TwoWay}"/>
+        <ComboBox  Grid.Column="0" Grid.Row="5" Grid.ColumnSpan="3" ItemsSource="{Binding RemoteBranchs}" IsEditable="False" SelectedValue="{Binding SourceMergeBranch, Mode=TwoWay}"></ComboBox>
+        <Button  Grid.Column="3" Grid.Row="5" Command="{Binding MergeCmd}" Content="合并分支"></Button>
+        
+        <Separator Grid.Column="0" Grid.Row="6" Grid.ColumnSpan="4" Width="1" Height="Auto" VerticalAlignment="Stretch" HorizontalAlignment="Center" />
+        <TextBox  Grid.Column="0" Grid.Row="7" Grid.ColumnSpan="2"  Text="{Binding CModule, Mode=TwoWay}"></TextBox>
+        <Button  Grid.Column="2" Grid.Row="7" Command="{Binding CommitCmd}" Content="提交"></Button>
+        <Button  Grid.Column="3" Grid.Row="7" Command="{Binding PushCmd}" Content="推送"></Button>
+        <TextBox Grid.Column="0" Grid.Row="8" Grid.ColumnSpan="4" AcceptsReturn="True" Height="50" TextWrapping="Wrap" Text="{Binding CMsg, Mode=TwoWay}"/>
 
     </Grid>
 </UserControl>

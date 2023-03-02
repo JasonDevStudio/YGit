@@ -42,7 +42,7 @@ namespace YGit.ViewModel
         private ObservableCollection<string> branches;
         private ObservableCollection<string> remoteBranches;
 
-        private ILogger logger => GlobaService.GetService<ILogger>();
+        public ILogger logger => GlobaService.GetService<ILogger>();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="YGitVM"/> class.
@@ -475,8 +475,8 @@ namespace YGit.ViewModel
             else
             {
                 this.BeforePushEvent?.Invoke();
-                if (IsCompiled)
-                    await this.PushGitAsync();
+                //if (IsCompiled)
+                //    await this.PushGitAsync();
             }
         }
 

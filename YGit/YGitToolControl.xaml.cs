@@ -8,6 +8,7 @@ using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Events;
 using Microsoft.VisualStudio.Shell.Interop;
 using YGit.ViewModel;
+using Constants = EnvDTE.Constants;
 
 namespace YGit
 {
@@ -27,6 +28,7 @@ namespace YGit
         public YGitToolControl()
         {
             this.InitializeComponent();
+
             var slnPath = YGitPackage.vsDTE.DTE.Solution?.FullName;
             var events = YGitPackage.vsDTE.Solution?.DTE.Events;
             var slnEvents = events?.SolutionEvents;
@@ -48,7 +50,7 @@ namespace YGit
                     gitVM.LoadCurrentBranche();
                 }
 
-            }, null, 5000, 60000);
+            }, null, 5000, 10000);
 
             // 推送前触发事件  触发项目编译
             gitVM.BeforePushEvent = () =>
@@ -56,10 +58,13 @@ namespace YGit
                 var iscompiled = true;
                 var projects = GetEditedProjects(YGitPackage.vsDTE.DTE);
 
-                foreach (var project in projects)
+                foreach (Project project in YGitPackage.vsDTE.DTE.Solution.Projects)
                     iscompiled &= CompileProject(YGitPackage.vsDTE.DTE, project);
 
-                gitVM.IsCompiled = iscompiled;
+                if (gitVM.IsCompiled)
+                    gitVM.IsCompiled = iscompiled;
+                else
+                    MessageBox.Show("代码编译失败，本次代码推送已取消，请解决错误后再次推送。详细信息请查阅【YGitTool】输出。", "YGitTool", MessageBoxButton.OK, MessageBoxImage.Error);
             };
         }
 
@@ -67,12 +72,11 @@ namespace YGit
         /// Compiles the project.
         /// </summary>
         /// <param name="dte">The DTE.</param>
-        /// <param name="projectName">Name of the project.</param>
+        /// <param name="project">the project.</param>
         /// <returns></returns>
-        private bool CompileProject(DTE dte, string projectName)
+        private bool CompileProject(DTE dte, Project project)
         {
             Solution2 solution = (Solution2)dte.Solution;
-            Project project = solution.Projects.Item(projectName);
 
             if (project == null)
             {
@@ -81,14 +85,29 @@ namespace YGit
 
             solution.SolutionBuild.BuildProject(solution.SolutionBuild.ActiveConfiguration.Name, project.UniqueName, true);
 
+            EnvDTE80.DTE2 dte2 = (EnvDTE80.DTE2)dte;
+            var panes = dte2.ToolWindows.OutputWindow.OutputWindowPanes;
+            OutputWindowPane buildOutputPane;
+
+            foreach (EnvDTE.OutputWindowPane pane in panes)
+            {
+                if (pane.Name.Contains("Build"))
+                {
+                    buildOutputPane = pane;
+                    break;
+                }
+            }
+              
             if (solution.SolutionBuild.LastBuildInfo == 0)
             {
                 // Build succeeded
+                gitVM.logger.WriteLine($"Error: {project.Name} is build succeeded.");
                 return true;
             }
             else
             {
                 // Build failed
+                gitVM.logger.WriteLine($"Error: {project.Name} is build failed.");
                 return false;
             }
         }
@@ -109,27 +128,19 @@ namespace YGit
                 {
                     if (item.IsDirty)
                     {
-                        editedProjects.Add(project.Name);
-                        break;
+                        if (!editedProjects.Contains(project.Name))
+                            editedProjects.Add(project.Name);
+
+                        gitVM.logger.WriteLine($"Project:[{project.Name}], File:[{item.Name}] is modified.");
+                    }
+                    else
+                    {
+                        gitVM.logger.WriteLine($"Project:[{project.Name}], File:[{item.Name}] is not modified.");
                     }
                 }
             }
 
             return editedProjects;
-        }
-
-        /// <summary>
-        /// Handles click on the button by displaying a message box.
-        /// </summary>
-        /// <param name="sender">The event sender.</param>
-        /// <param name="e">The event args.</param>
-        [SuppressMessage("Microsoft.Globalization", "CA1300:SpecifyMessageBoxOptions", Justification = "Sample code")]
-        [SuppressMessage("StyleCop.CSharp.NamingRules", "SA1300:ElementMustBeginWithUpperCaseLetter", Justification = "Default event handler naming pattern")]
-        private void button1_Click(object sender, RoutedEventArgs e)
-        {
-            MessageBox.Show(
-                string.Format(System.Globalization.CultureInfo.CurrentUICulture, "Invoked '{0}' 9999", this.ToString()),
-                "YGitTool");
-        }
+        } 
     }
 }
