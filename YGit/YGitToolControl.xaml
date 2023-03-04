@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:vsshell="clr-namespace:Microsoft.VisualStudio.Shell;assembly=Microsoft.VisualStudio.Shell.15.0"
              xmlns:ViewModel="clr-namespace:YGit.ViewModel" x:Class="YGit.YGitToolControl"
+             xmlns:Y="clr-namespace:YGit"
              Background="{DynamicResource {x:Static vsshell:VsBrushes.WindowKey}}"
              Foreground="{DynamicResource {x:Static vsshell:VsBrushes.WindowTextKey}}"
              mc:Ignorable="d"
@@ -14,7 +15,9 @@
     <UserControl.DataContext>
         <ViewModel:YGitVM/>
     </UserControl.DataContext>
-
+    <UserControl.Resources>
+        <Y:CountToEnabledConverter x:Key="CommitCountToEnabledConverter"/>
+    </UserControl.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="auto"></ColumnDefinition>
@@ -38,7 +41,7 @@
         <TextBox  Grid.Column="2" Grid.Row="0" IsReadOnly="True" Text="{Binding CurrentBranch}"></TextBox>
         <TextBox  Grid.Column="3" Grid.Row="0" IsReadOnly="True" Text="{Binding CurrentRemoteBranch}"></TextBox>
         <Button  Grid.Column="0" Grid.Row="1" Command="{Binding LoadConfCmd}" Content="加载"></Button>
-        <Button  Grid.Column="1" Grid.Row="1" Command="{Binding CloneCmd}" Content="克隆"></Button>
+        <Button  Grid.Column="1" Grid.Row="1" Command="{Binding CloneCmd}" Content="克隆" IsEnabled="{Binding CurrentBranch, Converter={StaticResource CloneEnabledConverter}}"></Button>
         <Button  Grid.Column="2" Grid.Row="1" Command="{Binding FetchCmd}" Content="获取远端"></Button>
         <Button  Grid.Column="3" Grid.Row="1" Command="{Binding FetchCmd}" IsEnabled="False" Content="新增配置"></Button>
         
@@ -54,8 +57,8 @@
         
         <Separator Grid.Column="0" Grid.Row="6" Grid.ColumnSpan="4" Width="1" Height="Auto" VerticalAlignment="Stretch" HorizontalAlignment="Center" />
         <TextBox  Grid.Column="0" Grid.Row="7" Grid.ColumnSpan="2"  Text="{Binding CModule, Mode=TwoWay}"></TextBox>
-        <Button  Grid.Column="2" Grid.Row="7" Command="{Binding CommitCmd}" Content="提交"></Button>
-        <Button  Grid.Column="3" Grid.Row="7" Command="{Binding PushCmd}" Content="推送"></Button>
+        <Button  Grid.Column="2" Grid.Row="7" Command="{Binding CommitCmd}" Content="提交" IsEnabled="{Binding ModifiedCount, Converter={StaticResource CountToEnabledConverter}}"></Button>
+        <Button  Grid.Column="3" Grid.Row="7" Command="{Binding PushCmd}" Content="推送" IsEnabled="{Binding CommitCount, Converter={StaticResource CountToEnabledConverter}}"></Button>
         <TextBox Grid.Column="0" Grid.Row="8" Grid.ColumnSpan="4" AcceptsReturn="True" Height="50" TextWrapping="Wrap" Text="{Binding CMsg, Mode=TwoWay}"/>
 
     </Grid>

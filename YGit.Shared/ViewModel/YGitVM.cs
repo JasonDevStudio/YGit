@@ -39,6 +39,8 @@ namespace YGit.ViewModel
         private string currentRemoteBranch;
         private bool _initialized = false;
         private bool iscompiled = false;
+        private int commitCount;
+        private int modifiedCount;
         private ObservableCollection<string> branches;
         private ObservableCollection<string> remoteBranches;
 
@@ -189,6 +191,16 @@ namespace YGit.ViewModel
         public bool IsCompiled { get => this.iscompiled; set => this.SetProperty(ref this.iscompiled, value); }
 
         /// <summary>
+        /// 提交数量
+        /// </summary>
+        public int CommitCount { get => this.commitCount; set => this.SetProperty(ref this.commitCount, value); }
+        
+        /// <summary>
+        /// 文件修改数量
+        /// </summary>
+        public int ModifiedCount { get => this.modifiedCount; set => this.SetProperty(ref this.modifiedCount, value); } 
+
+        /// <summary>
         /// Gets or sets the clone command.
         /// </summary>
         /// <value>
@@ -325,6 +337,8 @@ namespace YGit.ViewModel
                         this.CloneModule(this.GitConf.ThirdConf);
                 });
             }
+
+            this.CommitRefresh();
         }
 
         /// <summary>
@@ -348,6 +362,8 @@ namespace YGit.ViewModel
             });
 
             logger.WriteLine($"Pull repo [{this.GitConf.Name}] end.");
+
+            this.CommitRefresh();
         }
 
         /// <summary>
@@ -371,6 +387,8 @@ namespace YGit.ViewModel
             });
 
             logger.WriteLine($"Fetch repo [{this.GitConf.Name}] end.");
+
+            this.CommitRefresh();
         }
 
         /// <summary>
@@ -404,6 +422,8 @@ namespace YGit.ViewModel
                 this.CModule = null;
                 this.CMsg = null;
             }, message);
+
+            this.CommitRefresh();
         }
 
         /// <summary>
@@ -440,6 +460,8 @@ namespace YGit.ViewModel
                 this.CheckoutBranch = null;
                 this.CheckoutRemoteBranch = null;
             });
+
+            this.CommitRefresh();
         }
 
         /// <summary>
@@ -461,6 +483,8 @@ namespace YGit.ViewModel
                 if (this.GitConf.ThirdConf != null)
                     this.MergeModule(this.GitConf.ThirdConf);
             });
+
+            this.CommitRefresh();
         }
 
         /// <summary>
@@ -475,8 +499,8 @@ namespace YGit.ViewModel
             else
             {
                 this.BeforePushEvent?.Invoke();
-                //if (IsCompiled)
-                //    await this.PushGitAsync();
+                if (IsCompiled)
+                    await this.PushGitAsync();
             }
         }
 
@@ -499,6 +523,54 @@ namespace YGit.ViewModel
                 if (this.GitConf.ThirdConf != null)
                     this.PushModule(this.GitConf.ThirdConf);
             });
+
+            this.CommitRefresh();
+        }
+
+        /// <summary>
+        /// 刷新待推送的Commit数量
+        /// </summary>
+        public void CommitRefresh()
+        {
+            this.CommitCount += this.GitConf?.OneConf?.Repository?.Head?.TrackingDetails?.AheadBy ?? 0;
+            this.CommitCount += this.GitConf?.TwoConf?.Repository?.Head?.TrackingDetails?.AheadBy ?? 0;
+            this.CommitCount += this.GitConf?.ThirdConf?.Repository?.Head?.TrackingDetails?.AheadBy ?? 0;
+        }
+
+        /// <summary>
+        /// 文件已修改数量刷新
+        /// </summary>
+        public void ModifiedRefresh()
+        {
+            this.ModifiedCount += ModifiedRefresh(this.GitConf?.OneConf);
+            this.ModifiedCount += ModifiedRefresh(this.GitConf?.TwoConf);
+            this.ModifiedCount += ModifiedRefresh(this.GitConf?.ThirdConf);
+        }
+
+        /// <summary>
+        /// 刷新模块的文件修改数量
+        /// </summary>
+        /// <param name="conf">YGitRepoConf</param>
+        /// <returns>已修改文件数量</returns>
+        private int ModifiedRefresh(YGitRepoConf conf)
+        {
+            try
+            {
+                if(conf == null)
+                    return 0;
+
+                this.Initialize(conf);
+                // 获取所有修改的文件（包括新添加的文件和删除的文件）
+                var changes = conf.Repository.RetrieveStatus(new StatusOptions() { IncludeIgnored = false, RecurseIgnoredDirs = false, IncludeUnaltered = false });
+                // 获取已修改的文件
+                var modifiedFiles = changes.Modified.Select(c => c.FilePath).ToList();
+                return modifiedFiles?.Count ?? 0;
+            }
+            catch (Exception ex)
+            {
+                logger.WriteLine($"Error:{ex}");
+                return 0;
+            }
         }
 
         /// <summary>
