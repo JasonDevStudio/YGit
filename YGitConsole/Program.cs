@@ -12,19 +12,19 @@ addin.RegsisterTypes();
 var confs = new YGitConfs();
 var gitConf = new YGitConf()
 {
-    Name = "YGit_Develop",
+    Name = "OpenCharts_Develop",
     BranchName ="develop",
-    Email = "yaojiestudio@gmail.com",
-    Password = "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",
-    RootPath = "C:\\Users\\yaojie\\Documents\\Git",
-    UserName = "y95535",
+    Email = "yaojiestudio@outlook.com",
+    Password = "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",
+    RootPath = "C:\\Users\\yaoji\\Documents\\Git",
+    UserName = "y95536",
     OneConf = new YGitRepoConf
     {
         RemoteName = "origin",
-        RemoteUrl = "https://github.com/y95535/OpenCharts.git",
-        RepoName = "YGit",
+        RemoteUrl = "https://github.com/y95536/OpenCharts.git",
+        RepoName = "OpenCharts",
         SecondRemoteName = "team_origin",
-        SecondRemoteUrl = "https://github.com/JasonDevStudio/OpenCharts.git"
+        SecondRemoteUrl = "https://github.com/y95535/OpenCharts.git"
     }
 };
 
