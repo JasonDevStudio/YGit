@@ -16,7 +16,8 @@
         <ViewModel:YGitVM/>
     </UserControl.DataContext>
     <UserControl.Resources>
-        <Y:CountToEnabledConverter x:Key="CommitCountToEnabledConverter"/>
+        <Y:CountToEnabledConverter x:Key="CountToEnabledConverter"/>
+        <Y:CloneEnabledConverter x:Key="CloneEnabledConverter"/>
     </UserControl.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
