@@ -76,7 +76,7 @@ namespace YGit
                     gitVM.ModifiedRefresh();
                 }
 
-            }, null, 5000, 10000);
+            }, null, 15000, 30000);
 
             // 推送前触发事件  触发项目编译
             gitVM.BeforePushEvent = () =>

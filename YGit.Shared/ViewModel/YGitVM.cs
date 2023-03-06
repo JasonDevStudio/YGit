@@ -36,7 +36,7 @@ namespace YGit.ViewModel
         private string checkoutBranch;
         private string checkoutRemoteBranch;
         private string currentBranch;
-        private string currentRemoteBranch;
+        private string currentRemoteBranch; 
         private bool _initialized = false;
         private bool iscompiled = false;
         private int commitCount;
@@ -194,11 +194,11 @@ namespace YGit.ViewModel
         /// 提交数量
         /// </summary>
         public int CommitCount { get => this.commitCount; set => this.SetProperty(ref this.commitCount, value); }
-        
+
         /// <summary>
         /// 文件修改数量
         /// </summary>
-        public int ModifiedCount { get => this.modifiedCount; set => this.SetProperty(ref this.modifiedCount, value); } 
+        public int ModifiedCount { get => this.modifiedCount; set => this.SetProperty(ref this.modifiedCount, value); }
 
         /// <summary>
         /// Gets or sets the clone command.
@@ -436,32 +436,39 @@ namespace YGit.ViewModel
         /// </exception>
         public async Task CheckoutAsync()
         {
-            if (string.IsNullOrWhiteSpace(this.CheckoutRemoteBranch))
-                throw new ArgumentNullException(nameof(this.CheckoutRemoteBranch));
-
-            if (string.IsNullOrWhiteSpace(this.CheckoutBranch))
-                throw new ArgumentNullException(nameof(this.CheckoutBranch));
-
-            this.LoadConf();
-            this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
-
-            await Task.Run(() =>
+            try
             {
-                if (this.GitConf.OneConf != null)
-                    this.CheckoutModule(this.GitConf.OneConf);
+                if (string.IsNullOrWhiteSpace(this.CheckoutRemoteBranch))
+                    throw new ArgumentNullException(nameof(this.CheckoutRemoteBranch));
 
-                if (this.GitConf.TwoConf != null)
-                    this.CheckoutModule(this.GitConf.TwoConf);
+                if (string.IsNullOrWhiteSpace(this.CheckoutBranch))
+                    throw new ArgumentNullException(nameof(this.CheckoutBranch));
 
-                if (this.GitConf.ThirdConf != null)
-                    this.CheckoutModule(this.GitConf.ThirdConf);
+                this.LoadConf();
+                this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
 
-                this.GitConf.BranchName = this.CheckoutBranch;
-                this.CheckoutBranch = null;
-                this.CheckoutRemoteBranch = null;
-            });
+                await Task.Run(() =>
+                {
+                    if (this.GitConf.OneConf != null)
+                        this.CheckoutModule(this.GitConf.OneConf);
 
-            this.CommitRefresh();
+                    if (this.GitConf.TwoConf != null)
+                        this.CheckoutModule(this.GitConf.TwoConf);
+
+                    if (this.GitConf.ThirdConf != null)
+                        this.CheckoutModule(this.GitConf.ThirdConf);
+
+                    this.GitConf.BranchName = this.CheckoutBranch;
+                    this.CheckoutBranch = null;
+                    this.CheckoutRemoteBranch = null;
+                });
+
+                this.CommitRefresh();
+            }
+            catch (Exception ex)
+            {
+                this.logger.WriteLine($"Error: Checkout Fail. \n-----{ex}");
+            }
         }
 
         /// <summary>
@@ -532,9 +539,16 @@ namespace YGit.ViewModel
         /// </summary>
         public void CommitRefresh()
         {
-            this.CommitCount += this.GitConf?.OneConf?.Repository?.Head?.TrackingDetails?.AheadBy ?? 0;
-            this.CommitCount += this.GitConf?.TwoConf?.Repository?.Head?.TrackingDetails?.AheadBy ?? 0;
-            this.CommitCount += this.GitConf?.ThirdConf?.Repository?.Head?.TrackingDetails?.AheadBy ?? 0;
+            try
+            {
+                this.CommitCount += this.GitConf?.OneConf?.Repository?.Head?.TrackingDetails?.AheadBy ?? 0;
+                this.CommitCount += this.GitConf?.TwoConf?.Repository?.Head?.TrackingDetails?.AheadBy ?? 0;
+                this.CommitCount += this.GitConf?.ThirdConf?.Repository?.Head?.TrackingDetails?.AheadBy ?? 0;
+            }
+            catch (Exception ex)
+            {
+                this.logger.WriteLine($"Error: Commit Count Refresh Fail. \n-----{ex}");
+            }
         }
 
         /// <summary>
@@ -542,9 +556,16 @@ namespace YGit.ViewModel
         /// </summary>
         public void ModifiedRefresh()
         {
-            this.ModifiedCount += ModifiedRefresh(this.GitConf?.OneConf);
-            this.ModifiedCount += ModifiedRefresh(this.GitConf?.TwoConf);
-            this.ModifiedCount += ModifiedRefresh(this.GitConf?.ThirdConf);
+            try
+            {
+                this.ModifiedCount += ModifiedRefresh(this.GitConf?.OneConf);
+                this.ModifiedCount += ModifiedRefresh(this.GitConf?.TwoConf);
+                this.ModifiedCount += ModifiedRefresh(this.GitConf?.ThirdConf);
+            }
+            catch (Exception ex)
+            {
+                this.logger.WriteLine($"Error: Modified Count Refresh Fail. \n-----{ex}");
+            }
         }
 
         /// <summary>
@@ -556,7 +577,7 @@ namespace YGit.ViewModel
         {
             try
             {
-                if(conf == null)
+                if (conf == null)
                     return 0;
 
                 this.Initialize(conf);
@@ -727,6 +748,7 @@ namespace YGit.ViewModel
                 else
                 {
                     Commands.Checkout(conf.Repository, localBranch, checkoutOpts);
+                    logger.WriteLine($"{conf.Repository.Head.FriendlyName} checkout completed.");
                 }
             }
             catch (Exception ex)
@@ -768,7 +790,6 @@ namespace YGit.ViewModel
                 }
                 else
                 {
-
                     // 获取所有修改的文件（包括新添加的文件和删除的文件）
                     var changes = conf.Repository.RetrieveStatus(new StatusOptions() { IncludeIgnored = false, RecurseIgnoredDirs = false, IncludeUnaltered = false });
                     // 获取已修改的文件
@@ -777,6 +798,8 @@ namespace YGit.ViewModel
                     if (modifiedFiles.Any())
                         conf.Repository.Commit($"Merge branch '{conf.SecondRemoteName}/{this.GitConf.BranchName}' into {this.GitConf.BranchName} .", signature, signature);
                 }
+
+                logger.WriteLine($"{originBranch} merge completed.");
             }
             catch (Exception ex)
             {
@@ -811,6 +834,7 @@ namespace YGit.ViewModel
 
                 var localBranch = conf.Repository.Branches[this.GitConf.BranchName];
                 conf.Repository.Network.Push(localBranch, pushOpts);
+                logger.WriteLine($"{localBranch.FriendlyName} push completed.");
             }
             catch (LibGit2Sharp.LibGit2SharpException ex)
             {
@@ -1011,8 +1035,8 @@ namespace YGit.ViewModel
             if (this.Branches?.Any() ?? false)
                 this.CurrentBranch = this.GitConf?.OneConf?.Repository?.Head?.FriendlyName;
 
-            if (this.RemoteBranchs?.Any() ?? false)
-                this.CurrentRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CheckoutBranch));
+            if ((this.RemoteBranchs?.Any() ?? false) && !string.IsNullOrWhiteSpace(this.CurrentBranch))
+                this.CurrentRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CurrentBranch));
         }
 
         /// <summary>
