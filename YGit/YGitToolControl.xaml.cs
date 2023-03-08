@@ -76,7 +76,7 @@ namespace YGit
                     gitVM.ModifiedRefresh();
                 }
 
-            }, null, 15000, 30000);
+            }, null, 15000, 10000);
 
             // 推送前触发事件  触发项目编译
             gitVM.BeforePushEvent = () =>
@@ -88,6 +88,19 @@ namespace YGit
                     gitVM.IsCompiled = iscompiled;
                 else
                     MessageBox.Show("代码编译失败，推送已取消，请解决后推送。详细查阅【错误】面板。", "YGitTool", MessageBoxButton.OK, MessageBoxImage.Error);
+            };
+
+            gitVM.GitConfigChangedEvent = () =>
+            {
+                Dispatcher.VerifyAccess();
+                 
+                if(YGitPackage.vsDTE.DTE.Solution?.FullName != gitVM.GitConf.RootPath)
+                {
+                    if(MessageBox.Show("检测到当前VS打开的文件夹与YGit.GitConf的路径不一致，是否打开GitConf的路径？", "YGitTool", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                    {
+                        YGitPackage.vsDTE.DTE.ExecuteCommand("File.OpenFolder", gitVM.GitConf.RootPath);
+                    }
+                }
             };
         }
 

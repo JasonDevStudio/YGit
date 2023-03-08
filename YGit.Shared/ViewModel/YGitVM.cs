@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -36,13 +37,14 @@ namespace YGit.ViewModel
         private string checkoutBranch;
         private string checkoutRemoteBranch;
         private string currentBranch;
-        private string currentRemoteBranch; 
+        private string currentRemoteBranch;
         private bool _initialized = false;
         private bool iscompiled = false;
         private int commitCount;
         private int modifiedCount;
-        private ObservableCollection<string> branches;
-        private ObservableCollection<string> remoteBranches;
+        private ObservableCollection<string> branches = new ObservableCollection<string>();
+        private ObservableCollection<string> remoteBranches = new ObservableCollection<string>();
+        private ObservableCollection<TreeEntryChanges> changes = new ObservableCollection<TreeEntryChanges>();
 
         public ILogger logger => GlobaService.GetService<ILogger>();
 
@@ -79,6 +81,9 @@ namespace YGit.ViewModel
                     this.SetProperty(ref this.gitConf, value);
                     this.OnGitConfChanged(value);
                     this.LoadBranches(value);
+                    this.CommitRefresh();
+                    this.ModifiedRefresh();
+                    this.GitConfigChangedEvent?.Invoke();
                     this.logger.WriteLine($"Repo Conf is changed, current select conf : {value?.Name}");
                 }
             }
@@ -101,6 +106,11 @@ namespace YGit.ViewModel
         /// RemoteBranchs
         /// </summary>
         public ObservableCollection<string> RemoteBranchs { get => this.remoteBranches; set => this.SetProperty(ref this.remoteBranches, value); }
+
+        /// <summary>
+        /// 被更改的集合
+        /// </summary>
+        public ObservableCollection<TreeEntryChanges> Changes { get => this.changes; set => this.SetProperty(ref this.changes, value); }
 
         /// <summary>
         /// Gets or sets the name of the repo.
@@ -289,6 +299,11 @@ namespace YGit.ViewModel
         public Action BeforePushEvent { get; set; }
 
         /// <summary>
+        /// 加载Config之后触发事件
+        /// </summary>
+        public Action GitConfigChangedEvent { get; set; }
+
+        /// <summary>
         /// Initializes the specified currpath.
         /// </summary> 
         public void Initialize()
@@ -464,6 +479,8 @@ namespace YGit.ViewModel
                 });
 
                 this.CommitRefresh();
+                this.ModifiedRefresh();
+                this.LoadCurrentBranche();
             }
             catch (Exception ex)
             {
@@ -558,6 +575,7 @@ namespace YGit.ViewModel
         {
             try
             {
+                this.Changes.Clear();
                 this.ModifiedCount += ModifiedRefresh(this.GitConf?.OneConf);
                 this.ModifiedCount += ModifiedRefresh(this.GitConf?.TwoConf);
                 this.ModifiedCount += ModifiedRefresh(this.GitConf?.ThirdConf);
@@ -582,10 +600,28 @@ namespace YGit.ViewModel
 
                 this.Initialize(conf);
                 // 获取所有修改的文件（包括新添加的文件和删除的文件）
-                var changes = conf.Repository.RetrieveStatus(new StatusOptions() { IncludeIgnored = false, RecurseIgnoredDirs = false, IncludeUnaltered = false });
-                // 获取已修改的文件
-                var modifiedFiles = changes.Modified.Select(c => c.FilePath).ToList();
-                return modifiedFiles?.Count ?? 0;
+
+                var _changes = new List<TreeEntryChanges>();
+                var diff = conf.Repository.Diff;
+                var changes = diff.Compare<TreeChanges>(null, true);
+
+                if (changes.Added?.Any() ?? false)
+                    _changes.AddRange(changes.Added);
+
+                if (changes.Modified?.Any() ?? false)
+                    _changes.AddRange(changes.Modified);
+
+                if (changes.Deleted?.Any() ?? false)
+                    _changes.AddRange(changes.Deleted);
+
+                if (changes.Renamed?.Any() ?? false)
+                    _changes.AddRange(changes.Renamed);
+
+                if (_changes?.Any() ?? false)
+                    foreach (var item in _changes)
+                        this.Changes.Add(item);
+
+                return changes?.Count ?? 0;
             }
             catch (Exception ex)
             {
@@ -997,26 +1033,33 @@ namespace YGit.ViewModel
         /// <param name="conf">The conf.</param>
         private void OnGitConfChanged(YGitConf conf)
         {
-            if (conf != null)
+            try
             {
-                signature = new Signature(conf.UserName, conf.Email, DateTimeOffset.Now);
-                pushOpts = new PushOptions { CredentialsProvider = (_url, _user, _cred) => new UsernamePasswordCredentials { Username = conf.UserName, Password = conf.Password }, OnPushStatusError = pushErrorHandler };
-                cloneOptions = new CloneOptions
+                if (conf != null)
                 {
-                    BranchName = conf.BranchName,
-                    OnProgress = progressHandler,
-                    OnCheckoutProgress = checkoutProgressHandler,
-                    CredentialsProvider = (url, usernameFromUrl, types) =>
-                        new UsernamePasswordCredentials
-                        {
-                            Username = conf.UserName,
-                            Password = conf.Password
-                        }
-                };
+                    signature = new Signature(conf.UserName, conf.Email, DateTimeOffset.Now);
+                    pushOpts = new PushOptions { CredentialsProvider = (_url, _user, _cred) => new UsernamePasswordCredentials { Username = conf.UserName, Password = conf.Password }, OnPushStatusError = pushErrorHandler };
+                    cloneOptions = new CloneOptions
+                    {
+                        BranchName = conf.BranchName,
+                        OnProgress = progressHandler,
+                        OnCheckoutProgress = checkoutProgressHandler,
+                        CredentialsProvider = (url, usernameFromUrl, types) =>
+                            new UsernamePasswordCredentials
+                            {
+                                Username = conf.UserName,
+                                Password = conf.Password
+                            }
+                    };
 
-                this.RepoName = conf.Name;
+                    this.RepoName = conf.Name;
 
-                this.LoadBranches(conf);
+                    this.LoadBranches(conf);
+                }
+            }
+            catch (Exception ex)
+            {
+                this.logger.WriteLine($"Error:OnGitConfChanged Fail。\n{ex}");
             }
         }
 
@@ -1025,18 +1068,25 @@ namespace YGit.ViewModel
         /// </summary> 
         internal void LoadCurrentBranche()
         {
-            if (this.GitConf == null)
+            try
             {
-                this.CheckoutBranch = null;
-                this.CheckoutRemoteBranch = null;
-                return;
+                if (this.GitConf == null)
+                {
+                    this.CheckoutBranch = null;
+                    this.CheckoutRemoteBranch = null;
+                    return;
+                }
+
+                if (this.Branches?.Any() ?? false)
+                    this.CurrentBranch = this.GitConf?.OneConf?.Repository?.Head?.FriendlyName;
+
+                if ((this.RemoteBranchs?.Any() ?? false) && !string.IsNullOrWhiteSpace(this.CurrentBranch))
+                    this.CurrentRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CurrentBranch));
             }
-
-            if (this.Branches?.Any() ?? false)
-                this.CurrentBranch = this.GitConf?.OneConf?.Repository?.Head?.FriendlyName;
-
-            if ((this.RemoteBranchs?.Any() ?? false) && !string.IsNullOrWhiteSpace(this.CurrentBranch))
-                this.CurrentRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CurrentBranch));
+            catch (Exception ex)
+            {
+                this.logger.WriteLine($"Error:LoadCurrentBranche Fail。\n{ex}");
+            }
         }
 
         /// <summary>
@@ -1045,51 +1095,58 @@ namespace YGit.ViewModel
         /// <param name="conf">YGitConf</param>
         internal void LoadBranches(YGitConf conf = null)
         {
-            var _branches = new System.Collections.Generic.List<string>();
-            var _rbranches = new System.Collections.Generic.List<string>();
-
-            if (conf != null)
+            try
             {
-                this.Initialize(conf.OneConf);
-                this.Initialize(conf.TwoConf);
-                this.Initialize(conf.ThirdConf);
-                var _oneBranches = conf.OneConf?.Repository?.Branches.Select(m => m.FriendlyName);
-                var _twoBranches = conf.TwoConf?.Repository?.Branches.Select(m => m.FriendlyName);
-                var _thirdBranches = conf.ThirdConf?.Repository?.Branches.Select(m => m.FriendlyName);
+                var _branches = new System.Collections.Generic.List<string>();
+                var _rbranches = new System.Collections.Generic.List<string>();
 
-                if (_oneBranches?.Any() ?? false)
+                if (conf != null)
                 {
-                    _branches = _oneBranches.Where(m => !m.Contains("/")).ToList();
-                    _rbranches = _oneBranches.Where(m => m.Contains("/")).ToList();
+                    this.Initialize(conf.OneConf);
+                    this.Initialize(conf.TwoConf);
+                    this.Initialize(conf.ThirdConf);
+                    var _oneBranches = conf.OneConf?.Repository?.Branches.Select(m => m.FriendlyName);
+                    var _twoBranches = conf.TwoConf?.Repository?.Branches.Select(m => m.FriendlyName);
+                    var _thirdBranches = conf.ThirdConf?.Repository?.Branches.Select(m => m.FriendlyName);
+
+                    if (_oneBranches?.Any() ?? false)
+                    {
+                        _branches = _oneBranches.Where(m => !m.Contains("/")).ToList();
+                        _rbranches = _oneBranches.Where(m => m.Contains("/")).ToList();
+                    }
+
+                    if (_twoBranches?.Any() ?? false)
+                    {
+                        _branches = _branches.Intersect(_twoBranches.Where(m => !m.Contains("/"))).ToList();
+                        _rbranches = _branches.Intersect(_twoBranches.Where(m => m.Contains("/"))).ToList();
+                    }
+
+                    if (_thirdBranches?.Any() ?? false)
+                    {
+                        _branches = _branches.Intersect(_thirdBranches.Where(m => !m.Contains("/"))).ToList();
+                        _rbranches = _branches.Intersect(_thirdBranches.Where(m => m.Contains("/"))).ToList();
+                    }
                 }
 
-                if (_twoBranches?.Any() ?? false)
+                this.Branches = new ObservableCollection<string>(_branches);
+                this.RemoteBranchs = new ObservableCollection<string>(_rbranches);
+                this.logger.WriteLine($"Branches is loaded. local branches count: {this.Branches.Count},remote ranches count: {this.RemoteBranchs.Count}");
+
+                if (this.Branches?.Any() ?? false)
                 {
-                    _branches = _branches.Intersect(_twoBranches.Where(m => !m.Contains("/"))).ToList();
-                    _rbranches = _branches.Intersect(_twoBranches.Where(m => m.Contains("/"))).ToList();
+                    this.CheckoutBranch = conf?.OneConf?.Repository?.Head?.FriendlyName;
+                    this.CurrentBranch = this.GitConf?.OneConf?.Repository?.Head?.FriendlyName;
                 }
 
-                if (_thirdBranches?.Any() ?? false)
+                if (this.RemoteBranchs?.Any() ?? false)
                 {
-                    _branches = _branches.Intersect(_thirdBranches.Where(m => !m.Contains("/"))).ToList();
-                    _rbranches = _branches.Intersect(_thirdBranches.Where(m => m.Contains("/"))).ToList();
+                    this.CheckoutRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CheckoutBranch));
+                    this.CurrentRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CheckoutBranch));
                 }
             }
-
-            this.Branches = new ObservableCollection<string>(_branches);
-            this.RemoteBranchs = new ObservableCollection<string>(_rbranches);
-            this.logger.WriteLine($"Branches is loaded. local branches count: {this.Branches.Count},remote ranches count: {this.RemoteBranchs.Count}");
-
-            if (this.Branches?.Any() ?? false)
+            catch (Exception ex)
             {
-                this.CheckoutBranch = conf?.OneConf?.Repository?.Head?.FriendlyName;
-                this.CurrentBranch = this.GitConf?.OneConf?.Repository?.Head?.FriendlyName;
-            }
-
-            if (this.RemoteBranchs?.Any() ?? false)
-            {
-                this.CheckoutRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CheckoutBranch));
-                this.CurrentRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CheckoutBranch));
+                this.logger.WriteLine($"Error:LoadBranches Fail。\n{ex}");
             }
         }
 
@@ -1098,24 +1155,31 @@ namespace YGit.ViewModel
         /// </summary>
         internal void LoadConf()
         {
-            if (!(this.GitConfs?.Any() ?? false))
+            try
             {
-                var confDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "YGit");
-                var confPath = Path.Combine(confDir, "YGitS.json");
-
-                if (File.Exists(confPath))
+                if (!(this.GitConfs?.Any() ?? false))
                 {
-                    var json = File.ReadAllText(confPath);
-                    this.GitConfs = Newtonsoft.Json.JsonConvert.DeserializeObject<YGitConfs>(json);
+                    var confDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "YGit");
+                    var confPath = Path.Combine(confDir, "YGitS.json");
+
+                    if (File.Exists(confPath))
+                    {
+                        var json = File.ReadAllText(confPath);
+                        this.GitConfs = Newtonsoft.Json.JsonConvert.DeserializeObject<YGitConfs>(json);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(this.repoPath))
+                {
+                    if (!this.IsValid(new DirectoryInfo(this.repoPath)))
+                        throw new NotFoundException($"Error:当前路径 {this.repoPath} 找不到匹配的仓库配置。");
+
+                    this.GitConf = this.GitConfs.FirstOrDefault(m => m.OneConf.LocalPath == this.repoPath || m.TwoConf?.LocalPath == this.repoPath || m.ThirdConf?.LocalPath == this.repoPath);
                 }
             }
-
-            if (!string.IsNullOrWhiteSpace(this.repoPath))
+            catch (Exception ex)
             {
-                if (!this.IsValid(new DirectoryInfo(this.repoPath)))
-                    throw new NotFoundException($"Error:当前路径 {this.repoPath} 找不到匹配的仓库配置。");
-
-                this.GitConf = this.GitConfs.FirstOrDefault(m => m.OneConf.LocalPath == this.repoPath || m.TwoConf?.LocalPath == this.repoPath || m.ThirdConf?.LocalPath == this.repoPath);
+                this.logger.WriteLine($"{ex}");
             }
         }
 

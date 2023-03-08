@@ -16,7 +16,7 @@ var gitConf = new YGitConf()
     BranchName ="develop",
     Email = "yaojiestudio@outlook.com",
     Password = "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",
-    RootPath = "C:\\Users\\yaoji\\Documents\\Git",
+    RootPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),"YGit"),
     UserName = "y95536",
     OneConf = new YGitRepoConf
     {
