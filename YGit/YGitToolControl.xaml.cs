@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using EnvDTE;
 using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
@@ -76,7 +77,7 @@ namespace YGit
                     gitVM.ModifiedRefresh();
                 }
 
-            }, null, 15000, 10000);
+            }, null, 5000, 5000);
 
             // 推送前触发事件  触发项目编译
             gitVM.BeforePushEvent = () =>
@@ -93,10 +94,10 @@ namespace YGit
             gitVM.GitConfigChangedEvent = () =>
             {
                 Dispatcher.VerifyAccess();
-                 
-                if(YGitPackage.vsDTE.DTE.Solution?.FullName != gitVM.GitConf.RootPath)
+
+                if (YGitPackage.vsDTE.DTE.Solution?.FullName != gitVM.GitConf.RootPath)
                 {
-                    if(MessageBox.Show("检测到当前VS打开的文件夹与YGit.GitConf的路径不一致，是否打开GitConf的路径？", "YGitTool", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                    if (MessageBox.Show("检测到当前VS打开的文件夹与YGit.GitConf的路径不一致，是否打开GitConf的路径？", "YGitTool", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
                     {
                         YGitPackage.vsDTE.DTE.ExecuteCommand("File.OpenFolder", gitVM.GitConf.RootPath);
                     }

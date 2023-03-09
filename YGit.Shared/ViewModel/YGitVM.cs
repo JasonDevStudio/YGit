@@ -45,6 +45,7 @@ namespace YGit.ViewModel
         private ObservableCollection<string> branches = new ObservableCollection<string>();
         private ObservableCollection<string> remoteBranches = new ObservableCollection<string>();
         private ObservableCollection<TreeEntryChanges> changes = new ObservableCollection<TreeEntryChanges>();
+        private List<TreeEntryChanges> gitChanges = new List<TreeEntryChanges>();
 
         public ILogger logger => GlobaService.GetService<ILogger>();
 
@@ -111,6 +112,22 @@ namespace YGit.ViewModel
         /// 被更改的集合
         /// </summary>
         public ObservableCollection<TreeEntryChanges> Changes { get => this.changes; set => this.SetProperty(ref this.changes, value); }
+
+        /// <summary>
+        /// 被更改的集合
+        /// </summary>
+        public List<TreeEntryChanges> GitChanges
+        {
+            get => this.gitChanges;
+            set
+            {
+                if (value != this.gitChanges)
+                {
+                    this.SetProperty(ref this.gitChanges, value);
+                    this.Changes = new ObservableCollection<TreeEntryChanges>(this.GitChanges);
+                }
+            }
+        }
 
         /// <summary>
         /// Gets or sets the name of the repo.
@@ -439,6 +456,7 @@ namespace YGit.ViewModel
             }, message);
 
             this.CommitRefresh();
+            this.ModifiedRefresh();
         }
 
         /// <summary>
@@ -575,10 +593,11 @@ namespace YGit.ViewModel
         {
             try
             {
-                this.Changes.Clear();
-                this.ModifiedCount += ModifiedRefresh(this.GitConf?.OneConf);
-                this.ModifiedCount += ModifiedRefresh(this.GitConf?.TwoConf);
-                this.ModifiedCount += ModifiedRefresh(this.GitConf?.ThirdConf);
+                var _changes = new List<TreeEntryChanges>();
+                this.ModifiedCount += ModifiedRefresh(this.GitConf?.OneConf, ref _changes);
+                this.ModifiedCount += ModifiedRefresh(this.GitConf?.TwoConf, ref _changes);
+                this.ModifiedCount += ModifiedRefresh(this.GitConf?.ThirdConf, ref _changes);
+                this.GitChanges = _changes;
             }
             catch (Exception ex)
             {
@@ -591,7 +610,7 @@ namespace YGit.ViewModel
         /// </summary>
         /// <param name="conf">YGitRepoConf</param>
         /// <returns>已修改文件数量</returns>
-        private int ModifiedRefresh(YGitRepoConf conf)
+        private int ModifiedRefresh(YGitRepoConf conf, ref List<TreeEntryChanges> trees)
         {
             try
             {
@@ -618,8 +637,7 @@ namespace YGit.ViewModel
                     _changes.AddRange(changes.Renamed);
 
                 if (_changes?.Any() ?? false)
-                    foreach (var item in _changes)
-                        this.Changes.Add(item);
+                    trees.AddRange(_changes);
 
                 return changes?.Count ?? 0;
             }
