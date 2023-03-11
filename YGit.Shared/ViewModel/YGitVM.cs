@@ -1184,7 +1184,7 @@ namespace YGit.ViewModel
                         this.CurrentBranch = this.GitConf?.OneConf?.Repository?.Head?.FriendlyName;
 
                     if (this.RemoteBranchs?.Any() ?? false)
-                        this.CurrentRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CheckoutBranch));
+                        this.CurrentRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CurrentBranch));
                 }
             }
             catch (Exception ex)
