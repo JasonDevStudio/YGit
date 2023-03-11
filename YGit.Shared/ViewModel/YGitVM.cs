@@ -630,18 +630,18 @@ namespace YGit.ViewModel
                 foreach (StatusEntry change in changes)
                 {
                     switch (change.State)
-                    { 
-                        case FileStatus.NewInIndex: 
-                        case FileStatus.ModifiedInIndex: 
-                        case FileStatus.DeletedFromIndex: 
-                        case FileStatus.RenamedInIndex: 
-                        case FileStatus.TypeChangeInIndex: 
-                        case FileStatus.NewInWorkdir: 
-                        case FileStatus.ModifiedInWorkdir: 
-                        case FileStatus.DeletedFromWorkdir: 
-                        case FileStatus.TypeChangeInWorkdir: 
-                        case FileStatus.RenamedInWorkdir: 
-                        case FileStatus.Conflicted: 
+                    {
+                        case FileStatus.NewInIndex:
+                        case FileStatus.ModifiedInIndex:
+                        case FileStatus.DeletedFromIndex:
+                        case FileStatus.RenamedInIndex:
+                        case FileStatus.TypeChangeInIndex:
+                        case FileStatus.NewInWorkdir:
+                        case FileStatus.ModifiedInWorkdir:
+                        case FileStatus.DeletedFromWorkdir:
+                        case FileStatus.TypeChangeInWorkdir:
+                        case FileStatus.RenamedInWorkdir:
+                        case FileStatus.Conflicted:
                             trees.Add(new YGitStatus { Repo = this.GitConf.Name, Module = conf.RepoName, Changed = change });
                             break;
                     }
@@ -771,22 +771,22 @@ namespace YGit.ViewModel
                 foreach (StatusEntry change in changes)
                 {
                     switch (change.State)
-                    { 
-                        case FileStatus.NewInIndex: 
-                        case FileStatus.ModifiedInIndex: 
-                        case FileStatus.DeletedFromIndex: 
-                        case FileStatus.RenamedInIndex: 
-                        case FileStatus.TypeChangeInIndex: 
-                        case FileStatus.NewInWorkdir: 
-                        case FileStatus.ModifiedInWorkdir: 
-                        case FileStatus.DeletedFromWorkdir: 
-                        case FileStatus.TypeChangeInWorkdir: 
+                    {
+                        case FileStatus.NewInIndex:
+                        case FileStatus.ModifiedInIndex:
+                        case FileStatus.DeletedFromIndex:
+                        case FileStatus.RenamedInIndex:
+                        case FileStatus.TypeChangeInIndex:
+                        case FileStatus.NewInWorkdir:
+                        case FileStatus.ModifiedInWorkdir:
+                        case FileStatus.DeletedFromWorkdir:
+                        case FileStatus.TypeChangeInWorkdir:
                         case FileStatus.RenamedInWorkdir:
                             modifiedFiles.Add(change.FilePath);
                             break;
                         default:
                             break;
-                    } 
+                    }
                 }
 
                 if (modifiedFiles?.Any() ?? false)
@@ -1181,16 +1181,10 @@ namespace YGit.ViewModel
                     // this.logger.WriteLine($"Branches is loaded. local branches count: {this.Branches.Count},remote ranches count: {this.RemoteBranchs.Count}");
 
                     if (this.Branches?.Any() ?? false)
-                    {
-                        this.CheckoutBranch = conf?.OneConf?.Repository?.Head?.FriendlyName;
                         this.CurrentBranch = this.GitConf?.OneConf?.Repository?.Head?.FriendlyName;
-                    }
 
                     if (this.RemoteBranchs?.Any() ?? false)
-                    {
-                        this.CheckoutRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CheckoutBranch));
                         this.CurrentRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CheckoutBranch));
-                    }
                 }
             }
             catch (Exception ex)
