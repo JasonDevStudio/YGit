@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -23,7 +24,7 @@ namespace YGit
     {
         YGitVM gitVM;
 
-        System.Threading.Timer timer;
+        DispatcherTimer timer;
 
         bool isInitialized;
         /// <summary>
@@ -41,9 +42,75 @@ namespace YGit
             gitVM = new YGitVM();
             this.DataContext = gitVM;
 
-            buildEvents.OnBuildDone += (s, e) =>
+            buildEvents.OnBuildDone += BuildEvents_OnBuildDone;
+            slnEvents.AfterClosing += () => gitVM.GitConf = null;
+            slnEvents.Opened += SlnEvents_Opened;
+
+            timer = new DispatcherTimer() { Interval = TimeSpan.FromSeconds(5), IsEnabled = true };
+            timer.Tick += Timer_Tick;
+            timer.Start();
+
+            // 推送前触发事件  触发项目编译
+            gitVM.BeforePushEvent = BeforePush;
+            gitVM.GitConfigChangedEvent = GitConfigChanged;
+        }
+
+        /// <summary>
+        /// Git Config Changed 事件
+        /// </summary>
+        private void GitConfigChanged()
+        {
+            Dispatcher.VerifyAccess();
+
+            if (YGitPackage.vsDTE.DTE.Solution?.FullName != gitVM.GitConf?.RootPath)
             {
-                if (e == vsBuildAction.vsBuildActionBuild)
+                var uiShell = Package.GetGlobalService(typeof(SVsUIShell)) as IVsUIShell;
+                if (MessageBox.Show("检测到当前VS打开的文件夹与YGit.GitConf的路径不一致，是否打开GitConf的路径？", "YGitTool", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                {
+                    YGitPackage.vsDTE.DTE.ExecuteCommand("File.OpenFolder", gitVM.GitConf.RootPath);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 代码推送前事件
+        /// </summary>
+        private void BeforePush()
+        {
+            Dispatcher.VerifyAccess();
+            var iscompiled = this.CompileProjects(YGitPackage.vsDTE.DTE);
+
+            if (iscompiled)
+                gitVM.IsCompiled = iscompiled;
+            else
+                MessageBox.Show("代码编译失败，推送已取消，请解决后推送。详细查阅【错误】面板。", "YGitTool", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+
+        /// <summary>
+        /// 解决方案文件夹打开后事件
+        /// </summary>
+        private void SlnEvents_Opened()
+        {
+            try
+            {
+                gitVM.RepoPath = YGitPackage.vsDTE.DTE.Solution?.FullName;
+            }
+            catch (Exception ex)
+            {
+                gitVM.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
+            }
+        }
+
+        /// <summary>
+        /// 项目编译完成事件
+        /// </summary>
+        /// <param name="Scope"></param>
+        /// <param name="Action"></param>
+        private void BuildEvents_OnBuildDone(vsBuildScope Scope, vsBuildAction Action)
+        {
+            try
+            {
+                if (Action == vsBuildAction.vsBuildActionBuild)
                 {
                     var errors = YGitPackage.vsDTE.ToolWindows.ErrorList;
                     errors.ShowErrors = true;
@@ -58,51 +125,32 @@ namespace YGit
                             gitVM.logger.WriteLine($"Project:{line.Project}, File: {line.FileName},LineNumber:{line.Line}, {line.Description}");
                     }
                 }
-            };
-            slnEvents.AfterClosing += () => gitVM.GitConf = null;
-            slnEvents.Opened += () =>
+            }
+            catch (Exception ex)
             {
-                gitVM.RepoPath = slnPath;
+                gitVM.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
+            }
+        }
+
+        /// <summary>
+        /// 定时器执行任务
+        /// </summary>
+        /// <param name="sender">sender</param>
+        /// <param name="e">e</param>
+        private void Timer_Tick(object sender, EventArgs e)
+        {
+            try
+            {
                 gitVM.LoadConf();
-            };
-
-            timer = new System.Threading.Timer(obj =>
+                gitVM.LoadBranches(gitVM.GitConf);
+                gitVM.LoadCurrentBranche();
+                gitVM.CommitRefresh();
+                gitVM.ModifiedRefresh();
+            }
+            catch (Exception ex)
             {
-                gitVM.RepoPath = YGitPackage.vsDTE.DTE.Solution?.FullName;
-                if (!string.IsNullOrWhiteSpace(gitVM.RepoPath))
-                {
-                    gitVM.LoadConf();
-                    gitVM.LoadCurrentBranche();
-                    gitVM.CommitRefresh();
-                    gitVM.ModifiedRefresh();
-                }
-
-            }, null, 5000, 5000);
-
-            // 推送前触发事件  触发项目编译
-            gitVM.BeforePushEvent = () =>
-            {
-                Dispatcher.VerifyAccess();
-                var iscompiled = this.CompileProjects(YGitPackage.vsDTE.DTE);
-
-                if (iscompiled)
-                    gitVM.IsCompiled = iscompiled;
-                else
-                    MessageBox.Show("代码编译失败，推送已取消，请解决后推送。详细查阅【错误】面板。", "YGitTool", MessageBoxButton.OK, MessageBoxImage.Error);
-            };
-
-            gitVM.GitConfigChangedEvent = () =>
-            {
-                Dispatcher.VerifyAccess();
-
-                if (YGitPackage.vsDTE.DTE.Solution?.FullName != gitVM.GitConf.RootPath)
-                {
-                    if (MessageBox.Show("检测到当前VS打开的文件夹与YGit.GitConf的路径不一致，是否打开GitConf的路径？", "YGitTool", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
-                    {
-                        YGitPackage.vsDTE.DTE.ExecuteCommand("File.OpenFolder", gitVM.GitConf.RootPath);
-                    }
-                }
-            };
+                gitVM.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
+            }
         }
 
         /// <summary>
@@ -154,108 +202,6 @@ namespace YGit
             }
 
             return state;
-        }
-
-        /// <summary>
-        /// Compiles the project.
-        /// </summary>
-        /// <param name="dte">The DTE.</param>
-        /// <param name="project">the project.</param>
-        /// <returns></returns>
-        private bool CompileProject(DTE dte, Project project)
-        {
-            Dispatcher.VerifyAccess();
-            Solution2 solution = (Solution2)dte.Solution;
-            if (project == null)
-            {
-                return true;
-            }
-
-            try
-            {
-                if (project.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}")
-                {
-                    gitVM.logger.WriteLine($"None: {project.Name} is a shared project..");
-                    return true;
-                }
-
-                solution.SolutionBuild.BuildProject(project.Name, project.UniqueName, true);
-                if (solution.SolutionBuild.LastBuildInfo == 0)
-                {
-                    // Build succeeded
-                    gitVM.logger.WriteLine($"Succeeded: {project.Name} is build succeeded.");
-                    return true;
-                }
-                else
-                {
-                    // Build failed
-                    gitVM.logger.WriteLine($"Error: {project.Name} is build failed.");
-                    return false;
-                }
-            }
-            catch (Exception ex)
-            {
-                gitVM.logger.WriteLine($"Error: {project.Name} is Rebuild failed. \n-----{ex}");
-                return false;
-            }
-
-
-            EnvDTE80.DTE2 dte2 = (EnvDTE80.DTE2)dte;
-            var panes = dte2.ToolWindows.OutputWindow.OutputWindowPanes;
-            OutputWindowPane buildOutputPane;
-
-            foreach (EnvDTE.OutputWindowPane pane in panes)
-            {
-                if (pane.Name.Contains("Build"))
-                {
-                    buildOutputPane = pane;
-                    break;
-                }
-            }
-
-            if (solution.SolutionBuild.LastBuildInfo == 0)
-            {
-                // Build succeeded
-                gitVM.logger.WriteLine($"Succeeded: {project.Name} is build succeeded.");
-                return true;
-            }
-            else
-            {
-                // Build failed
-                gitVM.logger.WriteLine($"Error: {project.Name} is build failed.");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Gets the edited projects.
-        /// </summary>
-        /// <param name="dte">The DTE.</param>
-        /// <returns></returns>
-        private List<string> GetEditedProjects(DTE dte)
-        {
-            Solution solution = dte.Solution;
-            List<string> editedProjects = new List<string>();
-
-            foreach (Project project in solution.Projects)
-            {
-                foreach (ProjectItem item in project.ProjectItems)
-                {
-                    if (item.IsDirty)
-                    {
-                        if (!editedProjects.Contains(project.Name))
-                            editedProjects.Add(project.Name);
-
-                        gitVM.logger.WriteLine($"Project:[{project.Name}], File:[{item.Name}] is modified.");
-                    }
-                    else
-                    {
-                        gitVM.logger.WriteLine($"Project:[{project.Name}], File:[{item.Name}] is not modified.");
-                    }
-                }
-            }
-
-            return editedProjects;
         }
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -44,8 +45,7 @@ namespace YGit.ViewModel
         private int modifiedCount;
         private ObservableCollection<string> branches = new ObservableCollection<string>();
         private ObservableCollection<string> remoteBranches = new ObservableCollection<string>();
-        private ObservableCollection<TreeEntryChanges> changes = new ObservableCollection<TreeEntryChanges>();
-        private List<TreeEntryChanges> gitChanges = new List<TreeEntryChanges>();
+        private ObservableCollection<YGitStatus> changes = new ObservableCollection<YGitStatus>();
 
         public ILogger logger => GlobaService.GetService<ILogger>();
 
@@ -82,6 +82,7 @@ namespace YGit.ViewModel
                     this.SetProperty(ref this.gitConf, value);
                     this.OnGitConfChanged(value);
                     this.LoadBranches(value);
+                    this.LoadCurrentBranche();
                     this.CommitRefresh();
                     this.ModifiedRefresh();
                     this.GitConfigChangedEvent?.Invoke();
@@ -111,23 +112,7 @@ namespace YGit.ViewModel
         /// <summary>
         /// 被更改的集合
         /// </summary>
-        public ObservableCollection<TreeEntryChanges> Changes { get => this.changes; set => this.SetProperty(ref this.changes, value); }
-
-        /// <summary>
-        /// 被更改的集合
-        /// </summary>
-        public List<TreeEntryChanges> GitChanges
-        {
-            get => this.gitChanges;
-            set
-            {
-                if (value != this.gitChanges)
-                {
-                    this.SetProperty(ref this.gitChanges, value);
-                    this.Changes = new ObservableCollection<TreeEntryChanges>(this.GitChanges);
-                }
-            }
-        }
+        public ObservableCollection<YGitStatus> Changes { get => this.changes; set => this.SetProperty(ref this.changes, value); }
 
         /// <summary>
         /// Gets or sets the name of the repo.
@@ -233,7 +218,7 @@ namespace YGit.ViewModel
         /// <value>
         /// The clone command.
         /// </value>
-        public ICommand CloneCmd => new AsyncRelayCommand(CloneAsync);
+        public ICommand CloneCmd => new RelayCommand(Clone);
 
         /// <summary>
         /// Gets or sets the pull command.
@@ -241,7 +226,7 @@ namespace YGit.ViewModel
         /// <value>
         /// The pull command.
         /// </value>
-        public ICommand PullCmd => new AsyncRelayCommand(PullAsync);
+        public ICommand PullCmd => new RelayCommand(Pull);
 
         /// <summary>
         /// Gets or sets the fetch command.
@@ -249,7 +234,7 @@ namespace YGit.ViewModel
         /// <value>
         /// The fetch command.
         /// </value>
-        public ICommand FetchCmd => new AsyncRelayCommand(FetchAsync);
+        public ICommand FetchCmd => new RelayCommand(Fetch);
 
         /// <summary>
         /// Gets or sets the merge command.
@@ -257,7 +242,7 @@ namespace YGit.ViewModel
         /// <value>
         /// The merge command.
         /// </value>
-        public ICommand MergeCmd => new AsyncRelayCommand(MergeAsync);
+        public ICommand MergeCmd => new RelayCommand(Merge);
 
         /// <summary>
         /// Gets or sets the push command.
@@ -265,7 +250,7 @@ namespace YGit.ViewModel
         /// <value>
         /// The push command.
         /// </value>
-        public ICommand PushCmd => new AsyncRelayCommand(PushAsync);
+        public ICommand PushCmd => new RelayCommand(Push);
 
         /// <summary>
         /// Gets or sets the commit command.
@@ -273,7 +258,7 @@ namespace YGit.ViewModel
         /// <value>
         /// The commit command.
         /// </value>
-        public ICommand CommitCmd => new AsyncRelayCommand(CommitAsync);
+        public ICommand CommitCmd => new RelayCommand(Commit);
 
         /// <summary>
         /// Gets the checkout command.
@@ -281,7 +266,7 @@ namespace YGit.ViewModel
         /// <value>
         /// The checkout command.
         /// </value>
-        public ICommand CheckoutCmd => new AsyncRelayCommand(CheckoutAsync);
+        public ICommand CheckoutCmd => new RelayCommand(Checkout);
 
         /// <summary>
         /// Gets or sets the save conf command.
@@ -349,15 +334,15 @@ namespace YGit.ViewModel
         /// <summary>
         /// Clones the asynchronous.
         /// </summary>
-        public async Task CloneAsync()
+        public void Clone()
         {
-            this.repoPath = null;
-            this.LoadConf();
-            this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
-
-            if (this.GitConf != null)
+            try
             {
-                await Task.Run(() =>
+                this.repoPath = null;
+                this.LoadConf();
+                this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
+
+                if (this.GitConf != null)
                 {
                     if (this.GitConf.OneConf != null)
                         this.CloneModule(this.GitConf.OneConf);
@@ -367,22 +352,28 @@ namespace YGit.ViewModel
 
                     if (this.GitConf.ThirdConf != null)
                         this.CloneModule(this.GitConf.ThirdConf);
-                });
-            }
 
-            this.CommitRefresh();
+                    this.LoadBranches(this.GitConf);
+                    this.LoadCurrentBranche();
+                    this.CommitRefresh();
+                }
+            }
+            catch (Exception ex)
+            {
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
+            }
         }
 
         /// <summary>
         /// Pulls the asynchronous.
         /// </summary>
-        public async Task PullAsync()
+        public void Pull()
         {
-            this.LoadConf();
-            this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
-
-            await Task.Run(() =>
+            try
             {
+                this.LoadConf();
+                this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
+
                 if (this.GitConf.OneConf != null)
                     this.PullModule(this.GitConf.OneConf);
 
@@ -391,23 +382,27 @@ namespace YGit.ViewModel
 
                 if (this.GitConf.ThirdConf != null)
                     this.PullModule(this.GitConf.ThirdConf);
-            });
 
-            logger.WriteLine($"Pull repo [{this.GitConf.Name}] end.");
+                logger.WriteLine($"Pull repo [{this.GitConf.Name}] end.");
 
-            this.CommitRefresh();
+                this.CommitRefresh();
+            }
+            catch (Exception ex)
+            {
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
+            }
         }
 
         /// <summary>
         /// fetch the asynchronous.
         /// </summary>
-        public async Task FetchAsync()
+        public void Fetch()
         {
-            this.LoadConf();
-            this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
-
-            await Task.Run(() =>
+            try
             {
+                this.LoadConf();
+                this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
+
                 if (this.GitConf.OneConf != null)
                     this.FetchModule(this.GitConf.OneConf);
 
@@ -416,47 +411,53 @@ namespace YGit.ViewModel
 
                 if (this.GitConf.ThirdConf != null)
                     this.FetchModule(this.GitConf.ThirdConf);
-            });
 
-            logger.WriteLine($"Fetch repo [{this.GitConf.Name}] end.");
+                logger.WriteLine($"Fetch repo [{this.GitConf.Name}] end.");
 
-            this.CommitRefresh();
+                this.CommitRefresh();
+            }
+            catch (Exception ex)
+            {
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
+            }
         }
 
         /// <summary>
         /// Commits the asynchronous.
         /// </summary>
-        public async Task CommitAsync()
+        public void Commit()
         {
-            if (string.IsNullOrWhiteSpace(this.CModule))
-                throw new ArgumentNullException(nameof(this.CModule));
-
-            if (string.IsNullOrWhiteSpace(this.CMsg))
-                throw new ArgumentNullException(nameof(this.CMsg));
-
-            this.LoadConf();
-            this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
-
-            var message = $"[{this.CModule}] {this.CMsg}";
-
-            await Task.Factory.StartNew(obj =>
+            try
             {
-                var msg = $"{obj}";
+                if (string.IsNullOrWhiteSpace(this.CModule))
+                    throw new ArgumentNullException(nameof(this.CModule));
+
+                if (string.IsNullOrWhiteSpace(this.CMsg))
+                    throw new ArgumentNullException(nameof(this.CMsg));
+
+                this.LoadConf();
+                this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
+
+                var message = $"[{this.CModule}] {this.CMsg}";
                 if (this.GitConf.OneConf != null)
-                    this.CommitModule(this.GitConf.OneConf, msg);
+                    this.CommitModule(this.GitConf.OneConf, message);
 
                 if (this.GitConf.TwoConf != null)
-                    this.CommitModule(this.GitConf.TwoConf, msg);
+                    this.CommitModule(this.GitConf.TwoConf, message);
 
                 if (this.GitConf.ThirdConf != null)
-                    this.CommitModule(this.GitConf.ThirdConf, msg);
+                    this.CommitModule(this.GitConf.ThirdConf, message);
 
                 this.CModule = null;
                 this.CMsg = null;
-            }, message);
 
-            this.CommitRefresh();
-            this.ModifiedRefresh();
+                this.CommitRefresh();
+                this.ModifiedRefresh();
+            }
+            catch (Exception ex)
+            {
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
+            }
         }
 
         /// <summary>
@@ -467,7 +468,7 @@ namespace YGit.ViewModel
         /// or
         /// CheckoutBranch
         /// </exception>
-        public async Task CheckoutAsync()
+        public void Checkout()
         {
             try
             {
@@ -480,21 +481,18 @@ namespace YGit.ViewModel
                 this.LoadConf();
                 this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
 
-                await Task.Run(() =>
-                {
-                    if (this.GitConf.OneConf != null)
-                        this.CheckoutModule(this.GitConf.OneConf);
+                if (this.GitConf.OneConf != null)
+                    this.CheckoutModule(this.GitConf.OneConf);
 
-                    if (this.GitConf.TwoConf != null)
-                        this.CheckoutModule(this.GitConf.TwoConf);
+                if (this.GitConf.TwoConf != null)
+                    this.CheckoutModule(this.GitConf.TwoConf);
 
-                    if (this.GitConf.ThirdConf != null)
-                        this.CheckoutModule(this.GitConf.ThirdConf);
+                if (this.GitConf.ThirdConf != null)
+                    this.CheckoutModule(this.GitConf.ThirdConf);
 
-                    this.GitConf.BranchName = this.CheckoutBranch;
-                    this.CheckoutBranch = null;
-                    this.CheckoutRemoteBranch = null;
-                });
+                this.GitConf.BranchName = this.CheckoutBranch;
+                this.CheckoutBranch = null;
+                this.CheckoutRemoteBranch = null;
 
                 this.CommitRefresh();
                 this.ModifiedRefresh();
@@ -502,20 +500,20 @@ namespace YGit.ViewModel
             }
             catch (Exception ex)
             {
-                this.logger.WriteLine($"Error: Checkout Fail. \n-----{ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
         }
 
         /// <summary>
         /// Merges the asynchronous.
         /// </summary>
-        public async Task MergeAsync()
+        public void Merge()
         {
-            this.LoadConf();
-            this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
-
-            await Task.Run(() =>
+            try
             {
+                this.LoadConf();
+                this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
+
                 if (this.GitConf.OneConf != null)
                     this.MergeModule(this.GitConf.OneConf);
 
@@ -524,38 +522,42 @@ namespace YGit.ViewModel
 
                 if (this.GitConf.ThirdConf != null)
                     this.MergeModule(this.GitConf.ThirdConf);
-            });
 
-            this.CommitRefresh();
+                this.CommitRefresh();
+            }
+            catch (Exception ex)
+            {
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
+            }
         }
 
         /// <summary>
         /// Push the asynchronous.
         /// </summary>
-        public async Task PushAsync()
+        public void Push()
         {
             if (this.BeforePushEvent == null)
             {
-                await PushGitAsync();
+                PushGitAsync();
             }
             else
             {
                 this.BeforePushEvent?.Invoke();
                 if (IsCompiled)
-                    await this.PushGitAsync();
+                    this.PushGitAsync();
             }
         }
 
         /// <summary>
         /// Push the asynchronous.
         /// </summary>
-        public async Task PushGitAsync()
+        public void PushGitAsync()
         {
-            this.LoadConf();
-            this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
-
-            await Task.Run(() =>
+            try
             {
+                this.LoadConf();
+                this.GitConf = this.GitConfs.FirstOrDefault(m => m.Name == this.RepoName);
+
                 if (this.GitConf.OneConf != null)
                     this.PushModule(this.GitConf.OneConf);
 
@@ -564,9 +566,13 @@ namespace YGit.ViewModel
 
                 if (this.GitConf.ThirdConf != null)
                     this.PushModule(this.GitConf.ThirdConf);
-            });
 
-            this.CommitRefresh();
+                this.CommitRefresh();
+            }
+            catch (Exception ex)
+            {
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
+            }
         }
 
         /// <summary>
@@ -582,7 +588,7 @@ namespace YGit.ViewModel
             }
             catch (Exception ex)
             {
-                this.logger.WriteLine($"Error: Commit Count Refresh Fail. \n-----{ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
         }
 
@@ -593,15 +599,15 @@ namespace YGit.ViewModel
         {
             try
             {
-                var _changes = new List<TreeEntryChanges>();
+                var _changes = new List<YGitStatus>();
                 this.ModifiedCount += ModifiedRefresh(this.GitConf?.OneConf, ref _changes);
                 this.ModifiedCount += ModifiedRefresh(this.GitConf?.TwoConf, ref _changes);
                 this.ModifiedCount += ModifiedRefresh(this.GitConf?.ThirdConf, ref _changes);
-                this.GitChanges = _changes;
+                this.Changes = new ObservableCollection<YGitStatus>(_changes);
             }
             catch (Exception ex)
             {
-                this.logger.WriteLine($"Error: Modified Count Refresh Fail. \n-----{ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
         }
 
@@ -610,7 +616,7 @@ namespace YGit.ViewModel
         /// </summary>
         /// <param name="conf">YGitRepoConf</param>
         /// <returns>已修改文件数量</returns>
-        private int ModifiedRefresh(YGitRepoConf conf, ref List<TreeEntryChanges> trees)
+        private int ModifiedRefresh(YGitRepoConf conf, ref List<YGitStatus> trees)
         {
             try
             {
@@ -620,30 +626,32 @@ namespace YGit.ViewModel
                 this.Initialize(conf);
                 // 获取所有修改的文件（包括新添加的文件和删除的文件）
 
-                var _changes = new List<TreeEntryChanges>();
-                var diff = conf.Repository.Diff;
-                var changes = diff.Compare<TreeChanges>(null, true);
+                var changes = conf.Repository.RetrieveStatus();
+                foreach (StatusEntry change in changes)
+                {
+                    switch (change.State)
+                    { 
+                        case FileStatus.NewInIndex: 
+                        case FileStatus.ModifiedInIndex: 
+                        case FileStatus.DeletedFromIndex: 
+                        case FileStatus.RenamedInIndex: 
+                        case FileStatus.TypeChangeInIndex: 
+                        case FileStatus.NewInWorkdir: 
+                        case FileStatus.ModifiedInWorkdir: 
+                        case FileStatus.DeletedFromWorkdir: 
+                        case FileStatus.TypeChangeInWorkdir: 
+                        case FileStatus.RenamedInWorkdir: 
+                        case FileStatus.Conflicted: 
+                            trees.Add(new YGitStatus { Repo = this.GitConf.Name, Module = conf.RepoName, Changed = change });
+                            break;
+                    }
+                }
 
-                if (changes.Added?.Any() ?? false)
-                    _changes.AddRange(changes.Added);
-
-                if (changes.Modified?.Any() ?? false)
-                    _changes.AddRange(changes.Modified);
-
-                if (changes.Deleted?.Any() ?? false)
-                    _changes.AddRange(changes.Deleted);
-
-                if (changes.Renamed?.Any() ?? false)
-                    _changes.AddRange(changes.Renamed);
-
-                if (_changes?.Any() ?? false)
-                    trees.AddRange(_changes);
-
-                return changes?.Count ?? 0;
+                return trees?.Count ?? 0;
             }
             catch (Exception ex)
             {
-                logger.WriteLine($"Error:{ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
                 return 0;
             }
         }
@@ -711,7 +719,7 @@ namespace YGit.ViewModel
             }
             catch (Exception ex)
             {
-                logger.WriteLine($"Error:{ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
         }
 
@@ -739,7 +747,7 @@ namespace YGit.ViewModel
             }
             catch (Exception ex)
             {
-                logger.WriteLine($"Error:{ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
         }
 
@@ -756,14 +764,40 @@ namespace YGit.ViewModel
 
                 // 获取所有修改的文件（包括新添加的文件和删除的文件）
                 var changes = conf.Repository.RetrieveStatus(new StatusOptions() { IncludeIgnored = false, RecurseIgnoredDirs = false, IncludeUnaltered = false });
-                // 获取已修改的文件
-                var modifiedFiles = changes.Modified.Select(c => c.FilePath).ToList();
-                Commands.Stage(conf.Repository, modifiedFiles);
-                conf.Repository.Commit(msg, signature, signature);
+
+                // 获取已修改的文件 
+                var modifiedFiles = new List<string>();
+
+                foreach (StatusEntry change in changes)
+                {
+                    switch (change.State)
+                    { 
+                        case FileStatus.NewInIndex: 
+                        case FileStatus.ModifiedInIndex: 
+                        case FileStatus.DeletedFromIndex: 
+                        case FileStatus.RenamedInIndex: 
+                        case FileStatus.TypeChangeInIndex: 
+                        case FileStatus.NewInWorkdir: 
+                        case FileStatus.ModifiedInWorkdir: 
+                        case FileStatus.DeletedFromWorkdir: 
+                        case FileStatus.TypeChangeInWorkdir: 
+                        case FileStatus.RenamedInWorkdir:
+                            modifiedFiles.Add(change.FilePath);
+                            break;
+                        default:
+                            break;
+                    } 
+                }
+
+                if (modifiedFiles?.Any() ?? false)
+                {
+                    Commands.Stage(conf.Repository, modifiedFiles);
+                    conf.Repository.Commit(msg, signature, signature);
+                }
             }
             catch (Exception ex)
             {
-                logger.WriteLine($"Error:{ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
         }
 
@@ -807,7 +841,7 @@ namespace YGit.ViewModel
             }
             catch (Exception ex)
             {
-                logger.WriteLine($"Error:{ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
         }
 
@@ -853,11 +887,11 @@ namespace YGit.ViewModel
                         conf.Repository.Commit($"Merge branch '{conf.SecondRemoteName}/{this.GitConf.BranchName}' into {this.GitConf.BranchName} .", signature, signature);
                 }
 
-                logger.WriteLine($"{originBranch} merge completed.");
+                logger.WriteLine($"{conf.RepoName} {originBranch} merge completed.");
             }
             catch (Exception ex)
             {
-                logger.WriteLine($"Error: {ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
         }
 
@@ -890,10 +924,9 @@ namespace YGit.ViewModel
                 conf.Repository.Network.Push(localBranch, pushOpts);
                 logger.WriteLine($"{localBranch.FriendlyName} push completed.");
             }
-            catch (LibGit2Sharp.LibGit2SharpException ex)
+            catch (Exception ex)
             {
-                // 处理异常
-                logger.WriteLine($"Error:{ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
 
         }
@@ -916,7 +949,7 @@ namespace YGit.ViewModel
             }
             catch (Exception ex)
             {
-                logger.WriteLine($"Error:{ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
         }
 
@@ -935,7 +968,7 @@ namespace YGit.ViewModel
             }
             catch (Exception ex)
             {
-                logger.WriteLine($"Error:{ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
         }
 
@@ -990,7 +1023,7 @@ namespace YGit.ViewModel
             }
             catch (Exception ex)
             {
-                logger.WriteLine($"Error: {ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
         }
 
@@ -1071,13 +1104,11 @@ namespace YGit.ViewModel
                     };
 
                     this.RepoName = conf.Name;
-
-                    this.LoadBranches(conf);
                 }
             }
             catch (Exception ex)
             {
-                this.logger.WriteLine($"Error:OnGitConfChanged Fail。\n{ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
         }
 
@@ -1103,7 +1134,7 @@ namespace YGit.ViewModel
             }
             catch (Exception ex)
             {
-                this.logger.WriteLine($"Error:LoadCurrentBranche Fail。\n{ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
         }
 
@@ -1111,7 +1142,7 @@ namespace YGit.ViewModel
         /// Load Branches
         /// </summary>
         /// <param name="conf">YGitConf</param>
-        internal void LoadBranches(YGitConf conf = null)
+        internal void LoadBranches(YGitConf conf)
         {
             try
             {
@@ -1136,35 +1167,35 @@ namespace YGit.ViewModel
                     if (_twoBranches?.Any() ?? false)
                     {
                         _branches = _branches.Intersect(_twoBranches.Where(m => !m.Contains("/"))).ToList();
-                        _rbranches = _branches.Intersect(_twoBranches.Where(m => m.Contains("/"))).ToList();
+                        _rbranches = _rbranches.Intersect(_twoBranches.Where(m => m.Contains("/"))).ToList();
                     }
 
                     if (_thirdBranches?.Any() ?? false)
                     {
                         _branches = _branches.Intersect(_thirdBranches.Where(m => !m.Contains("/"))).ToList();
-                        _rbranches = _branches.Intersect(_thirdBranches.Where(m => m.Contains("/"))).ToList();
+                        _rbranches = _rbranches.Intersect(_thirdBranches.Where(m => m.Contains("/"))).ToList();
                     }
-                }
 
-                this.Branches = new ObservableCollection<string>(_branches);
-                this.RemoteBranchs = new ObservableCollection<string>(_rbranches);
-                this.logger.WriteLine($"Branches is loaded. local branches count: {this.Branches.Count},remote ranches count: {this.RemoteBranchs.Count}");
+                    this.Branches = new ObservableCollection<string>(_branches);
+                    this.RemoteBranchs = new ObservableCollection<string>(_rbranches);
+                    // this.logger.WriteLine($"Branches is loaded. local branches count: {this.Branches.Count},remote ranches count: {this.RemoteBranchs.Count}");
 
-                if (this.Branches?.Any() ?? false)
-                {
-                    this.CheckoutBranch = conf?.OneConf?.Repository?.Head?.FriendlyName;
-                    this.CurrentBranch = this.GitConf?.OneConf?.Repository?.Head?.FriendlyName;
-                }
+                    if (this.Branches?.Any() ?? false)
+                    {
+                        this.CheckoutBranch = conf?.OneConf?.Repository?.Head?.FriendlyName;
+                        this.CurrentBranch = this.GitConf?.OneConf?.Repository?.Head?.FriendlyName;
+                    }
 
-                if (this.RemoteBranchs?.Any() ?? false)
-                {
-                    this.CheckoutRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CheckoutBranch));
-                    this.CurrentRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CheckoutBranch));
+                    if (this.RemoteBranchs?.Any() ?? false)
+                    {
+                        this.CheckoutRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CheckoutBranch));
+                        this.CurrentRemoteBranch = this.RemoteBranchs.FirstOrDefault(m => m.Contains(this.CheckoutBranch));
+                    }
                 }
             }
             catch (Exception ex)
             {
-                this.logger.WriteLine($"Error:LoadBranches Fail。\n{ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
         }
 
@@ -1178,7 +1209,7 @@ namespace YGit.ViewModel
                 if (!(this.GitConfs?.Any() ?? false))
                 {
                     var confDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "YGit");
-                    var confPath = Path.Combine(confDir, "YGitS.json");
+                    var confPath = Path.Combine(confDir, "YGits.json");
 
                     if (File.Exists(confPath))
                     {
@@ -1189,15 +1220,12 @@ namespace YGit.ViewModel
 
                 if (!string.IsNullOrWhiteSpace(this.repoPath))
                 {
-                    if (!this.IsValid(new DirectoryInfo(this.repoPath)))
-                        throw new NotFoundException($"Error:当前路径 {this.repoPath} 找不到匹配的仓库配置。");
-
                     this.GitConf = this.GitConfs.FirstOrDefault(m => m.OneConf.LocalPath == this.repoPath || m.TwoConf?.LocalPath == this.repoPath || m.ThirdConf?.LocalPath == this.repoPath);
                 }
             }
             catch (Exception ex)
             {
-                this.logger.WriteLine($"{ex}");
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
             }
         }
 
@@ -1270,18 +1298,25 @@ namespace YGit.ViewModel
         /// </returns>
         private bool IsValid(DirectoryInfo directoryInfo)
         {
-            var valied = Repository.IsValid(directoryInfo.FullName);
-            if (valied)
+            try
             {
-                this.repoPath = directoryInfo.FullName;
-                return valied;
+                var valied = Repository.IsValid(directoryInfo.FullName);
+                if (valied)
+                {
+                    this.repoPath = directoryInfo.FullName;
+                    return valied;
+                }
+
+                if (directoryInfo.Parent != null)
+                    return this.IsValid(directoryInfo.Parent);
+
+                return false;
             }
-
-            if (directoryInfo.Parent != null)
-                return this.IsValid(directoryInfo.Parent);
-
-            return false;
+            catch (Exception ex)
+            {
+                this.logger.WriteLine($"Error: {MethodBase.GetCurrentMethod().Name} Fail.\n-----{ex}");
+                return false;
+            }
         }
-
     }
 }

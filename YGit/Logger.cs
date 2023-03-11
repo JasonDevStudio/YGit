@@ -26,6 +26,7 @@ namespace YGit
 
         public bool WriteLine(string message)
         {
+            outputPane.Activate();
             outputPane.OutputStringThreadSafe(message + Environment.NewLine); 
             return true;
         } 

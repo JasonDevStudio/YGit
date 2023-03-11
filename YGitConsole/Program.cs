@@ -13,16 +13,24 @@ var confs = new YGitConfs();
 var gitConf = new YGitConf()
 {
     Name = "OpenCharts_Develop",
-    BranchName ="develop",
+    BranchName = "develop",
     Email = "yaojiestudio@outlook.com",
     Password = "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",
-    RootPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),"YGit"),
+    RootPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "OpenCharts"),
     UserName = "y95536",
     OneConf = new YGitRepoConf
     {
         RemoteName = "origin",
         RemoteUrl = "https://github.com/y95536/OpenCharts.git",
-        RepoName = "OpenCharts",
+        RepoName = "framework",
+        SecondRemoteName = "team_origin",
+        SecondRemoteUrl = "https://github.com/y95535/OpenCharts.git"
+    },
+    TwoConf = new YGitRepoConf
+    {
+        RemoteName = "origin",
+        RemoteUrl = "https://github.com/y95536/OpenCharts.git",
+        RepoName = "modules",
         SecondRemoteName = "team_origin",
         SecondRemoteUrl = "https://github.com/y95535/OpenCharts.git"
     }

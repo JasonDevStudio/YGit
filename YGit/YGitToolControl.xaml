@@ -66,17 +66,24 @@
         <Separator Grid.Column="0" Grid.Row="9" Grid.ColumnSpan="4" Width="1" Height="Auto" VerticalAlignment="Stretch" HorizontalAlignment="Center" />
         <DataGrid Grid.Row="10" VerticalContentAlignment="Center" Grid.Column="0" Grid.ColumnSpan="4" AutoGenerateColumns="False" ItemsSource="{Binding Changes}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="60" >
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}" MinWidth="65" >
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="{x:Type TextBlock}">
                             <Setter Property="VerticalAlignment" Value="Center"/>
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
-                <DataGridTextColumn Header="Path" Binding="{Binding Path}" MinWidth="100" Width="Auto" >
+                <DataGridTextColumn Header="Module" Binding="{Binding Module}" MinWidth="70" >
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="{x:Type TextBlock}">
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Path" Binding="{Binding Changed.FilePath}" MinWidth="100" Width="Auto" >
                     <DataGridTextColumn.CellStyle>
                         <Style TargetType="{x:Type DataGridCell}">
-                            <Setter Property="ToolTip" Value="{Binding Path}"/> 
+                            <Setter Property="ToolTip" Value="{Binding FilePath}"/> 
                             <Setter Property="VerticalAlignment" Value="Center"/>
                         </Style>
                     </DataGridTextColumn.CellStyle>
